@@ -39,20 +39,23 @@ export function periodsIn(text: string, dateField: string): string[] {
   return [...set].sort();
 }
 
-/** All YYYY-MM between two periods inclusive. */
-export function monthRange(start: string, end: string): string[] {
-  const out: string[] = [];
-  let [y, m] = start.split("-").map(Number);
-  const [ey, em] = end.split("-").map(Number);
-  while (y < ey || (y === ey && m <= em)) {
-    out.push(`${y}-${String(m).padStart(2, "0")}`);
-    m++;
-    if (m > 12) { m = 1; y++; }
-  }
-  return out;
+function monthIndex(p: string): number {
+  const [y, m] = p.split("-").map(Number);
+  return y * 12 + (m - 1);
+}
+function fromMonthIndex(i: number): string {
+  const y = Math.floor(i / 12);
+  const m = (i % 12) + 1;
+  return `${y}-${String(m).padStart(2, "0")}`;
 }
 
-/** Gaps (missing months) within the covered span of a time-series file. */
+/**
+ * Cadence-aware gap detection. Infers the reporting cadence (monthly,
+ * quarterly, …) from the modal gap between periods, then flags only
+ * periods that are actually missing relative to that cadence. So a
+ * consistent quarterly series is clean, while a monthly series with a
+ * dropped month surfaces a "pocket".
+ */
 export function coverageGaps(
   text: string,
   dateField: string
@@ -61,9 +64,29 @@ export function coverageGaps(
   if (periods.length === 0) return null;
   const start = periods[0];
   const end = periods[periods.length - 1];
-  const expected = monthRange(start, end);
-  const have = new Set(periods);
-  const missing = expected.filter((p) => !have.has(p));
+  if (periods.length < 2) return { start, end, missing: [] };
+
+  const idx = periods.map(monthIndex);
+  const diffs: number[] = [];
+  for (let i = 1; i < idx.length; i++) diffs.push(idx[i] - idx[i - 1]);
+
+  // expected cadence = most common step between consecutive periods
+  const counts = new Map<number, number>();
+  let step = diffs[0];
+  for (const d of diffs) {
+    const c = (counts.get(d) ?? 0) + 1;
+    counts.set(d, c);
+    if (c > (counts.get(step) ?? 0)) step = d;
+  }
+  if (step <= 0) step = 1;
+
+  const missing: string[] = [];
+  for (let i = 1; i < idx.length; i++) {
+    const gap = idx[i] - idx[i - 1];
+    if (gap > step) {
+      for (let k = step; k < gap; k += step) missing.push(fromMonthIndex(idx[i - 1] + k));
+    }
+  }
   return { start, end, missing };
 }
 

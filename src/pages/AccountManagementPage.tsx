@@ -12,9 +12,9 @@ export default function AccountManagementPage() {
   const [role, setRole] = useState<User["role"]>("Planner");
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = createUser({ name, email, password, role });
+    const res = await createUser({ name, email, password, role });
     if (res.ok) {
       setName("");
       setEmail("");

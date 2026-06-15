@@ -110,9 +110,10 @@ write("plant_master.csv", toCsv(["plant", "name", "location", "capacity_minutes"
   const hist = months(2022, 7, 12); // 2022-07 .. 2023-06
   const rows = [];
   hist.forEach((date, i) => {
+    // DELIBERATE GAP: the whole of 2023-03 is missing, so the data
+    // check has a clean "time pocket" to surface in the demo.
+    if (date === "2023-03-01") return;
     SKUS.forEach((s) => {
-      // GAP: FR-0912 has no record for 2023-03
-      if (s.sku === "FR-0912" && date === "2023-03-01") return;
       const qty = round(s.base * seasonal(i) * (1 + 0.04 * (i / 12)));
       rows.push([date, s.sku, s.customer, s.plant, qty, round(qty * s.price)]);
     });

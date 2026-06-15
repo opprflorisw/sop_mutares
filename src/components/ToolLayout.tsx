@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { useProjects } from "../lib/projects";
 import { useAuth } from "../lib/auth";
 import AssistantDrawer from "./AssistantDrawer";
@@ -54,13 +54,20 @@ function NavRow({ item }: { item: NavItem }) {
 }
 
 export default function ToolLayout() {
-  const { activeProject } = useProjects();
+  const { activeProject, loading } = useProjects();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--color-surface-2)]">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-line-strong)] border-t-[var(--color-brand-600)]" />
+      </div>
+    );
+  }
+
   if (!activeProject) {
-    navigate("/workspace", { replace: true });
-    return null;
+    return <Navigate to="/workspace" replace />;
   }
 
   return (

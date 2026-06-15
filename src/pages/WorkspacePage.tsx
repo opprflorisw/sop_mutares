@@ -44,8 +44,8 @@ export default function WorkspacePage() {
         {showNew && (
           <NewProjectForm
             onCancel={() => setShowNew(false)}
-            onCreate={(input) => {
-              const id = createProject(input);
+            onCreate={async (input) => {
+              const id = await createProject(input);
               setShowNew(false);
               navigate(`/workspace/project/${id}`);
             }}

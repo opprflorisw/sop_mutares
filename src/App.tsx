@@ -14,8 +14,20 @@ import SupplyPage from "./pages/tool/SupplyPage";
 import CapacityPage from "./pages/tool/CapacityPage";
 import SettingsPage from "./pages/tool/SettingsPage";
 
+function FullScreenLoader() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-[var(--color-surface-2)]">
+      <div className="flex items-center gap-2 text-[13px] text-[var(--color-ink-2)]">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-line-strong)] border-t-[var(--color-brand-600)]" />
+        Loading…
+      </div>
+    </div>
+  );
+}
+
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <FullScreenLoader />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

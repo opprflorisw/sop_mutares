@@ -10,9 +10,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = login(email, password);
+    setBusy(true);
+    setError(null);
+    const res = await login(email, password);
+    setBusy(false);
     if (res.ok) navigate("/workspace");
     else setError(res.error ?? "Login failed.");
   }
@@ -99,8 +104,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Button type="submit" variant="primary" className="mt-5 w-full py-2">
-            Sign in
+          <Button type="submit" variant="primary" className="mt-5 w-full py-2" disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
           </Button>
 
           <div className="mt-5 rounded-md border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-3 py-2.5 text-[11px] text-[var(--color-ink-2)]">
