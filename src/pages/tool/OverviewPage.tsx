@@ -1,12 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
 import { Card, CardTitle, KpiTile, Tag, Button, PlaceholderNote } from "../../components/ui";
-import { IconDownload } from "../../components/icons";
+import { IconFile } from "../../components/icons";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
-import { exportSnopOnePager } from "../../lib/exportSnop";
+import ReportBuilderModal from "../../components/ReportBuilderModal";
 
 const NAV = [
   { to: "/tool/demand", emoji: "📈", title: "Demand", desc: "Unconstrained forecast, revenue, bias & variation" },
@@ -18,6 +19,7 @@ const SEV_TONE = { critical: "bad", high: "warn", medium: "info" } as const;
 export default function OverviewPage() {
   const d = useProjectData();
   const { activeProject } = useProjects();
+  const [reportOpen, setReportOpen] = useState(false);
 
   if (!d.hasData) return <NoData />;
 
@@ -29,8 +31,8 @@ export default function OverviewPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <PageHeader title="Executive S&OP" subtitle="Monthly snapshot — the numbers leadership decides on" />
-        <Button onClick={() => activeProject && exportSnopOnePager(activeProject, d)}>
-          <IconDownload size={14} /> Export one-pager
+        <Button variant="primary" onClick={() => setReportOpen(true)}>
+          <IconFile size={14} /> Build report
         </Button>
       </div>
 
@@ -102,6 +104,10 @@ export default function OverviewPage() {
           ))}
         </div>
       </Card>
+
+      {reportOpen && activeProject && (
+        <ReportBuilderModal project={activeProject} data={d} onClose={() => setReportOpen(false)} />
+      )}
     </div>
   );
 }
