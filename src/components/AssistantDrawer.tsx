@@ -1,20 +1,39 @@
 import { useRef, useState } from "react";
 import { IconSparkles, IconSend } from "./icons";
 import { aiChat } from "../lib/ai";
+import { useProjectData, fmtMoney, fmtUnits } from "../lib/projectData";
+import { useProjects } from "../lib/projects";
 
 // ============================================================
 // Persistent AI assistant — a drawer toggled from a floating
 // button, available across every module (the "chat-enabled
-// backend" from the team alignment). Calls the Gemini-backed
-// serverless function when deployed; falls back locally otherwise.
+// backend" from the team alignment). Grounds Gemini on the live
+// project data; falls back locally when the function is unreachable.
 // ============================================================
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-const CONTEXT =
-  "SFC India Sealings, Dec'22 cycle. 5 product families. Profile extrusions have a 25% demand-supply gap (~€149k at risk) constrained by Bawal Extrusion-2 (111% load, Nov–Dec). EPDM-12 rubber short from Wk 23 (~€122k at risk). Forecast bias -4.8%. 12m base revenue ~72 mEUR.";
+function buildContext(project: { name: string } | null, d: ReturnType<typeof useProjectData>): string {
+  if (!project || !d.hasData) return "No project data loaded yet.";
+  const fam = d.families.slice(0, 6).map((f) =>
+    `${f.family}: demand ${fmtUnits(f.unconstrained)} / supply ${fmtUnits(f.constrained)} (gap ${f.gapPct.toFixed(0)}%, ${fmtMoney(f.revenueAtRisk, d.currency)} at risk)`
+  ).join("; ");
+  const over = d.capacityLines.filter((l) => l.overload).map((l) => `${l.plant} ${l.line} ${l.util.toFixed(0)}%`).join(", ") || "none";
+  const issues = d.issues.map((i) => i.title).join("; ");
+  return [
+    `Project: ${project.name} (${d.currency}).`,
+    `12m revenue projection ${fmtMoney(d.kpis.revenueProjection, d.currency)}; forecast accuracy ${d.kpis.forecastAccuracy}% (bias ${d.kpis.forecastBias}%); inventory ${d.kpis.inventoryDays} days; capacity ${d.kpis.capacityUtil}%; revenue at risk ${fmtMoney(d.kpis.revenueAtRisk, d.currency)}.`,
+    `Families — ${fam}.`,
+    `Overloaded lines: ${over}.`,
+    `Open issues: ${issues || "none"}.`,
+  ].join("\n");
+}
 
 export default function AssistantDrawer() {
+  const { activeProject } = useProjects();
+  const d = useProjectData();
+  const context = buildContext(activeProject, d);
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
     {
@@ -34,7 +53,7 @@ export default function AssistantDrawer() {
     setInput("");
     setBusy(true);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    const { text } = await aiChat(next, CONTEXT);
+    const { text } = await aiChat(next, context);
     setMessages((m) => [...m, { role: "assistant", text }]);
     setBusy(false);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);

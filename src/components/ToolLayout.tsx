@@ -74,19 +74,10 @@ export default function ToolLayout() {
     <div className="flex h-screen overflow-hidden bg-[var(--color-surface-2)]">
       {/* Sidebar */}
       <aside className="flex w-[200px] shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-surface-2)]">
-        <div className="border-b border-[var(--color-line)] px-3.5 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--color-brand-800)] text-[12px] font-bold text-white">
-              M
-            </div>
-            <div>
-              <div className="text-[13px] font-semibold leading-tight">
-                S&OP Planner
-              </div>
-              <div className="text-[10px] text-[var(--color-ink-3)]">
-                Mutares
-              </div>
-            </div>
+        <div className="border-b border-[var(--color-line)] px-3.5 py-3.5">
+          <img src="/mutares.png" alt="Mutares" className="h-[15px] w-auto" />
+          <div className="mt-1.5 text-[11px] font-medium text-[var(--color-ink-3)]">
+            S&OP Planner
           </div>
         </div>
 

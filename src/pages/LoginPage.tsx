@@ -34,11 +34,9 @@ export default function LoginPage() {
             backgroundSize: "22px 22px",
           }}
         />
-        <div className="relative flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-[15px] font-bold">
-            M
-          </div>
-          <span className="text-[15px] font-semibold">Mutares · S&OP Planner</span>
+        <div className="relative flex items-center gap-3">
+          <img src="/mutares.png" alt="Mutares" className="h-[18px] w-auto" style={{ filter: "brightness(0) invert(1)" }} />
+          <span className="border-l border-white/25 pl-3 text-[14px] font-medium text-white/80">S&OP Planner</span>
         </div>
         <div className="relative">
           <h1 className="max-w-md text-[28px] font-semibold leading-tight">

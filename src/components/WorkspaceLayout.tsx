@@ -9,18 +9,11 @@ export default function WorkspaceLayout() {
   return (
     <div className="min-h-screen bg-[var(--color-surface-2)]">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-brand-800)] text-[13px] font-bold text-white">
-            M
-          </div>
-          <div>
-            <div className="text-[13px] font-semibold leading-tight">
-              S&OP Planner
-            </div>
-            <div className="text-[10px] text-[var(--color-ink-3)]">
-              Mutares · Workspace
-            </div>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img src="/mutares.png" alt="Mutares" className="h-4 w-auto" />
+          <span className="border-l border-[var(--color-line)] pl-2.5 text-[12px] font-medium text-[var(--color-ink-2)]">
+            S&OP Planner
+          </span>
         </div>
 
         <nav className="ml-4 flex items-center gap-1">

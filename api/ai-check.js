@@ -18,9 +18,21 @@ export default async function handler(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const summary = body.summary || "";
 
-  const prompt = `You are a supply-chain data-quality assistant for a Sales & Operations Planning tool.
-Given the automated data-check results below, write a short, friendly, non-technical summary for a portfolio-company manager.
-Lead with whether the data is ready to plan, then list the most important fixes as concise bullets (required files and time gaps first). Keep it under 130 words. Do not invent issues that aren't in the results.
+  const prompt = `You are a supply-chain data-quality assistant for a Sales & Operations Planning tool used by Mutares portfolio companies.
+Given the automated data-check results below, write a concise, well-structured briefing for a non-technical operations manager. Use this exact markdown shape:
+
+**Verdict:** one sentence — is the data ready to plan, and the headline reason.
+
+## What to fix first
+- bullets for blockers (missing required files, invalid files). For each, say the business impact in plain words (e.g. "without sales history the tool can't measure forecast accuracy"). If none, write "- Nothing blocking."
+
+## Worth tightening
+- bullets for warnings (time pockets / gaps, cross-file mismatches). Explain why each matters. If none, omit this section.
+
+## Recommended next step
+- one or two concrete actions.
+
+Rules: under 160 words. Bold key terms with **. Do NOT invent issues not present in the results. Be specific with the numbers/periods given.
 
 DATA-CHECK RESULTS:
 ${summary}`;
@@ -33,7 +45,7 @@ ${summary}`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
+          generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
         }),
       }
     );
