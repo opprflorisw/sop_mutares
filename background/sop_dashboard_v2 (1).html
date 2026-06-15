@@ -1,0 +1,1162 @@
+<h2 class="sr-only">Integrated S&OP dashboard — SFC India Sealings — with workflow, KPI scorecard, MPS RM/WIP/FG split, and Supply Chain Control Tower</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.app{display:flex;height:820px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary);font-size:13px}
+.sidebar{width:182px;flex-shrink:0;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);display:flex;flex-direction:column}
+.sb-logo{padding:14px 14px 10px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sb-logo-t{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.sb-logo-s{font-size:11px;color:var(--color-text-tertiary)}
+.sb-sec{padding:9px 8px 3px;font-size:10px;font-weight:500;color:var(--color-text-tertiary);letter-spacing:.06em;text-transform:uppercase}
+.nav{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--border-radius-md);cursor:pointer;color:var(--color-text-secondary);font-size:12px;margin:1px 4px}
+.nav:hover{background:var(--color-background-primary)}
+.nav.active{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500;border:0.5px solid var(--color-border-tertiary)}
+.nav i{font-size:14px;width:17px;flex-shrink:0}
+.nb{margin-left:auto;background:#E24B4A;color:#fff;font-size:10px;border-radius:8px;padding:1px 5px;font-weight:500}
+.sb-bot{margin-top:auto;padding:10px 8px;border-top:0.5px solid var(--color-border-tertiary)}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;padding:9px 14px;border-bottom:0.5px solid var(--color-border-tertiary);gap:8px;flex-shrink:0;flex-wrap:wrap}
+.topbar-title{font-size:14px;font-weight:500;flex:1}
+.chip{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);white-space:nowrap}
+.btn{display:flex;align-items:center;gap:4px;font-size:11px;padding:4px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;cursor:pointer;color:var(--color-text-primary)}
+.btn:hover{background:var(--color-background-secondary)}
+.btn.pri{background:#185FA5;color:#fff;border-color:#185FA5}
+.scr{display:none;padding:12px 14px;flex-direction:column;gap:11px}
+.scr.active{display:flex}
+.kg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.kg5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.kpi{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.kpi-l{font-size:10px;color:var(--color-text-secondary);margin-bottom:4px}
+.kpi-v{font-size:19px;font-weight:500;color:var(--color-text-primary)}
+.kpi-d{font-size:10px;margin-top:2px}
+.up{color:#3B6D11}.dn{color:#A32D2D}.wn{color:#854F0B}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:11px 13px}
+.ct{font-size:12px;font-weight:500;margin-bottom:9px;color:var(--color-text-primary)}
+.tab-r{display:flex;gap:4px;flex-wrap:wrap}
+.tab{font-size:10.5px;padding:3px 9px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);background:transparent;cursor:pointer;color:var(--color-text-secondary)}
+.tab.active{background:#185FA5;color:#fff;border-color:#185FA5}
+.tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}
+.tbl th{font-size:10px;color:var(--color-text-secondary);font-weight:500;padding:4px 5px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right;white-space:nowrap}
+.tbl th:first-child{text-align:left}
+.tbl td{padding:4px 5px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);text-align:right;vertical-align:middle;font-size:11px}
+.tbl td:first-child{text-align:left;font-weight:500}
+.tbl .tr-tot td{font-weight:500;background:var(--color-background-secondary)}
+.tbl tr:last-child td{border-bottom:none}
+.tag{font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;white-space:nowrap}
+.tg{background:#EAF3DE;color:#3B6D11}.ta{background:#FAEEDA;color:#854F0B}.tr{background:#FCEBEB;color:#A32D2D}.tb{background:#E6F1FB;color:#185FA5}.tp{background:#EEEDFE;color:#3C3489}
+.g2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:11px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.leg{display:flex;flex-wrap:wrap;gap:10px;font-size:10.5px;color:var(--color-text-secondary);margin-bottom:7px}
+.sw{width:9px;height:9px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:3px}
+.sl-row{margin-bottom:8px}
+.sl-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-secondary);margin-bottom:2px}
+.sl-val{font-weight:500;color:var(--color-text-primary)}
+input[type=range]{width:100%}
+.wf{font-size:10px;color:var(--color-text-tertiary);font-style:italic;margin-top:5px}
+.worst-flag{display:inline-flex;align-items:center;gap:2px;font-size:9px;padding:1px 4px;border-radius:3px;font-weight:500;background:#FCEBEB;color:#A32D2D;margin-left:3px}
+.lag-pip{display:flex;flex-direction:column;align-items:center;gap:1px}
+.type-act{color:#185FA5;font-weight:500}
+.type-proj{color:var(--color-text-tertiary)}
+
+/* ── WORKFLOW ── */
+.wf-flow{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:4px 0 8px}
+.wf-step{flex:1;min-width:130px;position:relative}
+.wf-step:not(:last-child)::after{content:'';position:absolute;top:28px;right:-12px;width:24px;height:2px;background:#185FA5;z-index:1}
+.wf-box{background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 10px;margin-right:24px;cursor:pointer;transition:all .15s}
+.wf-box:hover,.wf-box.active{border-color:#185FA5;background:#E6F1FB}
+.wf-num{font-size:9px;font-weight:600;color:#185FA5;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.wf-title{font-size:11px;font-weight:600;color:var(--color-text-primary);margin-bottom:3px}
+.wf-sub{font-size:10px;color:var(--color-text-secondary);line-height:1.4}
+.wf-owner{font-size:9px;color:#185FA5;margin-top:4px;font-weight:500}
+.wf-detail{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:var(--color-text-secondary);line-height:1.6;border-left:3px solid #185FA5}
+
+/* ── SCORECARD ── */
+.sc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sc-cat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px}
+.sc-cat-title{font-size:10px;font-weight:600;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding-bottom:5px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sc-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sc-row:last-child{border-bottom:none}
+.sc-name{font-size:10.5px;color:var(--color-text-primary);flex:1}
+.sc-val{font-size:11px;font-weight:600;min-width:50px;text-align:right}
+.sc-tgt{font-size:9px;color:var(--color-text-tertiary);min-width:40px;text-align:right}
+.sc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:6px}
+.dot-g{background:#3B9B3B}.dot-a{background:#EF9F27}.dot-r{background:#E24B4A}
+
+/* ── MPS INVENTORY SPLIT ── */
+.inv-stack{display:flex;flex-direction:column;gap:2px;height:120px;justify-content:flex-end}
+.inv-bar-seg{border-radius:3px 3px 0 0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;min-height:6px;transition:height .3s}
+.inv-legend-item{display:flex;align-items:center;gap:4px;font-size:10px}
+.inv-legend-dot{width:8px;height:8px;border-radius:2px}
+
+/* ── CONTROL TOWER ── */
+.ct-header{background:linear-gradient(135deg,#0F3460 0%,#185FA5 100%);border-radius:var(--border-radius-lg);padding:12px 14px;color:#fff;display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.ct-title-main{font-size:14px;font-weight:600}
+.ct-title-sub{font-size:11px;opacity:.7;margin-top:1px}
+.ct-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ct-kpi{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;border-left:3px solid transparent}
+.ct-kpi.green{border-left-color:#3B9B3B}
+.ct-kpi.amber{border-left-color:#EF9F27}
+.ct-kpi.red{border-left-color:#E24B4A}
+.ct-kpi-label{font-size:9.5px;color:var(--color-text-secondary);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.ct-kpi-val{font-size:17px;font-weight:600;color:var(--color-text-primary);line-height:1}
+.ct-kpi-delta{font-size:10px;margin-top:3px}
+.ct-kpi-tgt{font-size:9px;color:var(--color-text-tertiary);margin-top:1px}
+.ct-section{font-size:11px;font-weight:600;color:var(--color-text-primary);margin-bottom:7px;padding-bottom:4px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.ct-alert{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-radius:var(--border-radius-md);font-size:11px;margin-bottom:5px}
+.ct-alert.red-a{background:#FCEBEB;border:0.5px solid #E8BCBC}
+.ct-alert.amber-a{background:#FAEEDA;border:0.5px solid #E8D4A8}
+.ct-alert.green-a{background:#EAF3DE;border:0.5px solid #B8D9A0}
+.ct-alert-icon{font-size:13px;margin-top:1px;flex-shrink:0}
+.ct-alert-body{flex:1}
+.ct-alert-title{font-weight:600;margin-bottom:1px}
+.ct-alert-sub{color:var(--color-text-secondary);font-size:10px;line-height:1.4}
+.perf-bar{height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;margin-top:4px}
+.perf-fill{height:100%;border-radius:3px;transition:width .4s}
+</style>
+
+<div class="app">
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-t">S&OP Planner</div>
+    <div class="sb-logo-s">Sealings · Dec 2022</div>
+  </div>
+  <div class="sb-sec">Planning</div>
+  <div class="nav" onclick="goNav('overview',this)"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Overview</div>
+  <div class="nav" onclick="goNav('workflow',this)"><i class="ti ti-sitemap" aria-hidden="true"></i>Workflow</div>
+  <div class="nav active" onclick="goNav('demand',this)"><i class="ti ti-chart-line" aria-hidden="true"></i>Demand</div>
+  <div class="nav" onclick="goNav('supply',this)"><i class="ti ti-building-factory" aria-hidden="true"></i>Supply & MPS</div>
+  <div class="nav" onclick="goNav('inventory',this)"><i class="ti ti-box" aria-hidden="true"></i>Inventory<span class="nb">2</span></div>
+  <div class="sb-sec">Review</div>
+  <div class="nav" onclick="goNav('review',this)"><i class="ti ti-checks" aria-hidden="true"></i>S&OP Summary</div>
+  <div class="nav" onclick="goNav('controltower',this)"><i class="ti ti-radar" aria-hidden="true"></i>Control Tower</div>
+  <div class="nav" onclick="goNav('ai',this)"><i class="ti ti-sparkles" aria-hidden="true"></i>AI assistant</div>
+  <div class="sb-bot">
+    <div class="nav" style="margin:0"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="topbar">
+  <div class="topbar-title" id="top-title">Demand planning — CR_Demand_Plan_Sealings</div>
+  <span class="chip"><i class="ti ti-database" style="font-size:10px;vertical-align:-1px" aria-hidden="true"></i> MPS_Sealing + CR_DP</span>
+  <span class="chip" id="scen-chip">Base case · +6% growth</span>
+  <button class="btn"><i class="ti ti-download" aria-hidden="true"></i> Export</button>
+  <button class="btn pri" onclick="sendPrompt('Build this full integrated S&OP demand dashboard as a production React app')">Build app ↗</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     1. WORKFLOW SCREEN
+══════════════════════════════════════════════════ -->
+<div id="scr-workflow" class="scr">
+  <div class="card">
+    <div class="ct">S&OP Monthly Cycle — Key Activities & Owners</div>
+    <div class="wf-flow" id="wf-flow"></div>
+    <div id="wf-detail" class="wf-detail" style="margin-top:8px">
+      Click any step to see detailed activities and owners.
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ct">Meeting Sequence (Days relative to S&OP)</div>
+      <table class="tbl">
+        <thead><tr>
+          <th style="text-align:left;width:12%">Day</th>
+          <th style="text-align:left;width:30%">Meeting</th>
+          <th style="text-align:left">Key Output</th>
+          <th style="text-align:left;width:22%">Owner</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>-4</td><td>Demand updates</td><td>Revised ICP consensus</td><td>Demand Mgr</td></tr>
+          <tr><td>-3</td><td>Demand Review (ICP)</td><td>Approved demand plan, VulOps</td><td>Demand Mgr</td></tr>
+          <tr><td>-2</td><td>RCCP updates</td><td>Capacity plan refresh</td><td>Supply Plg Mgr</td></tr>
+          <tr><td>-1</td><td>Supply Review (RCCP)</td><td>Approved supply & inventory plan</td><td>Supply Plg Mgr</td></tr>
+          <tr><td>0</td><td>S&OP Meeting</td><td>Reconciled BU IBP plan, decisions</td><td>BU Head</td></tr>
+          <tr><td>+1</td><td>MPS Updated incl. RM</td><td>Detailed production schedule</td><td>Site Planners</td></tr>
+          <tr><td>+2</td><td>SC Management Review</td><td>Performance vs KPI, escalations</td><td>SC Director</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="ct">Bow-Tie Principle — Role Clarity</div>
+      <div style="font-size:11px;color:var(--color-text-secondary);line-height:1.7">
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+          <span class="tag tb">Demand Mgr</span>
+          <span>Interfaces with Sales, Marketing &amp; all channels</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+          <span class="tag tg">Supply Plg Mgr</span>
+          <span>Interfaces with site planners (sending/receiving)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+          <span class="tag tp">Site Planners</span>
+          <span>Execute MPS, manage RM / WIP / FG at site level</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+          <span class="tag ta">IBP Lead</span>
+          <span>Monthly integration across demand / supply / finance</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     2. DEMAND SCREEN (original, enhanced)
+══════════════════════════════════════════════════ -->
+<div id="scr-demand" class="scr active">
+
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <div class="tab-r">
+      <button class="tab" onclick="setH(3,this)">3m</button>
+      <button class="tab active" onclick="setH(12,this)">12m</button>
+      <button class="tab" onclick="setH(18,this)">18m</button>
+    </div>
+    <span style="margin-left:8px;font-size:11px;color:var(--color-text-secondary)">Plant:</span>
+    <div class="tab-r" id="plant-tabs">
+      <button class="tab active" onclick="setPlant('ALL',this)">All</button>
+      <button class="tab" onclick="setPlant('BWL',this)">Bawal</button>
+      <button class="tab" onclick="setPlant('MNR',this)">Manesar</button>
+      <button class="tab" onclick="setPlant('CNS',this)">Chennai</button>
+      <button class="tab" onclick="setPlant('SND',this)">Sanand</button>
+      <button class="tab" onclick="setPlant('SBD',this)">Sahibabad</button>
+    </div>
+  </div>
+
+  <div id="kpi-row" class="kg"></div>
+
+  <div class="g2">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div class="ct" id="main-chart-title" style="margin:0">Revenue forecast</div>
+        <div class="tab-r" id="view-tabs">
+          <button class="tab active" onclick="setView('rev',this)">Revenue</button>
+          <button class="tab" onclick="setView('vol',this)">Volume</button>
+          <button class="tab" onclick="setView('cm',this)">CM%</button>
+        </div>
+      </div>
+      <div style="height:175px"><canvas id="c-main"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ct">Scenario levers</div>
+      <div class="sl-row"><div class="sl-lbl">Annual growth <span class="sl-val" id="lbl-g">+6%</span></div><input type="range" min="-10" max="20" value="6" id="sl-g" oninput="rebuild()"></div>
+      <div class="sl-row"><div class="sl-lbl">Price (€/Tn) <span class="sl-val" id="lbl-p">1,650</span></div><input type="range" min="1200" max="2200" value="1650" id="sl-p" oninput="rebuild()"></div>
+      <div class="sl-row"><div class="sl-lbl">Price esc./yr <span class="sl-val" id="lbl-e">+2.5%</span></div><input type="range" min="-5" max="10" value="2.5" step="0.5" id="sl-e" oninput="rebuild()"></div>
+      <div class="sl-row"><div class="sl-lbl">Base CM% <span class="sl-val" id="lbl-c">18%</span></div><input type="range" min="8" max="30" value="18" id="sl-c" oninput="rebuild()"></div>
+      <div class="sl-row"><div class="sl-lbl">CM improv./yr <span class="sl-val" id="lbl-ci">+0.5pp</span></div><input type="range" min="-2" max="3" value="0.5" step="0.1" id="sl-ci" oninput="rebuild()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+      <div class="ct" id="pl-title" style="margin:0">Plant P&amp;L</div>
+      <div class="tab-r">
+        <button class="tab active" onclick="setBreak('plant',this)">By plant</button>
+        <button class="tab" onclick="setBreak('customer',this)">By customer</button>
+        <button class="tab" onclick="setBreak('annual',this)">Annual P&amp;L</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl"><thead id="pl-head"></thead><tbody id="pl-body"></tbody></table>
+    </div>
+    <div class="wf" id="pl-note"></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ct">Forecast accuracy &amp; BIAS — SKU level</div>
+      <table class="tbl">
+        <thead><tr>
+          <th style="text-align:left;width:15%">SKU</th>
+          <th style="text-align:left;width:22%">Description</th>
+          <th>MAPE</th><th style="width:120px">BIAS trend</th>
+          <th style="width:80px">Lag 3→Now</th>
+          <th>Status</th>
+          <th style="text-align:left">Action</th>
+        </tr></thead>
+        <tbody id="sku-body"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="ct">Customer demand mix</div>
+      <div style="height:130px"><canvas id="c-cust"></canvas></div>
+      <div class="leg" id="cust-legend" style="margin-top:6px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     3. SUPPLY & MPS (with RM/WIP/FG split)
+══════════════════════════════════════════════════ -->
+<div id="scr-supply" class="scr">
+  <div class="kg">
+    <div class="kpi"><div class="kpi-l">Total ICP Dec'22</div><div class="kpi-v">₹35.6 Cr</div><div class="kpi-d up">≈ 4.04 mEUR</div></div>
+    <div class="kpi"><div class="kpi-l">Total prod plan</div><div class="kpi-v">₹34.8 Cr</div><div class="kpi-d dn">-2.1% vs ICP</div></div>
+    <div class="kpi"><div class="kpi-l">FG closing stock</div><div class="kpi-v">₹11.9 Cr</div><div class="kpi-d wn">Dec'22</div></div>
+    <div class="kpi"><div class="kpi-l">Total SKUs</div><div class="kpi-v">801</div><div class="kpi-d">5 plants</div></div>
+  </div>
+
+  <!-- MPS Inventory Split by RM / WIP / FG -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+      <div class="ct" style="margin:0">MPS Inventory Split — RM / WIP / FG by Plant (INR Cr)</div>
+      <div class="tab-r">
+        <button class="tab active" onclick="setInvView('value',this)">₹ Value</button>
+        <button class="tab" onclick="setInvView('days',this)">Days</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;overflow-x:auto;padding-bottom:6px">
+      <div id="mps-bars" style="display:flex;gap:16px;align-items:flex-end;flex:1"></div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding-left:16px;border-left:0.5px solid var(--color-border-tertiary)">
+        <div class="ct" style="font-size:11px;margin-bottom:4px">India Total</div>
+        <div id="mps-summary"></div>
+        <div style="margin-top:6px">
+          <div class="inv-legend-item"><div class="inv-legend-dot" style="background:#185FA5"></div><span>Raw Material (RM)</span></div>
+          <div class="inv-legend-item" style="margin-top:3px"><div class="inv-legend-dot" style="background:#EF9F27"></div><span>Work in Progress (WIP)</span></div>
+          <div class="inv-legend-item" style="margin-top:3px"><div class="inv-legend-dot" style="background:#3B9B3B"></div><span>Finished Goods (FG)</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="height:3px;margin:8px 0;background:var(--color-border-tertiary);border-radius:2px"></div>
+    <table class="tbl">
+      <thead><tr>
+        <th style="text-align:left">Plant</th>
+        <th>Total (₹Cr)</th>
+        <th>RM (₹Cr)</th><th>RM%</th>
+        <th>WIP (₹Cr)</th><th>WIP%</th>
+        <th>FG (₹Cr)</th><th>FG%</th>
+        <th>Days (Total)</th>
+        <th>Target</th>
+        <th>Status</th>
+      </tr></thead>
+      <tbody id="mps-tbl-body"></tbody>
+    </table>
+    <div class="wf" style="margin-top:6px">Source: SFC India Scorecard — Oct'24 YTM data. RM includes GIT (Goods in Transit). Target = 40 days.</div>
+  </div>
+
+  <div class="card">
+    <div class="ct">RCCP — Capacity vs ICP (Aug/Sep/Oct)</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#185FA5">Bawal</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">MSIL, VW, Ford, FCA<br>Utilisation: <strong>94%</strong></div>
+        <div class="perf-bar"><div class="perf-fill" style="width:94%;background:#185FA5"></div></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#EF9F27">Chennai</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">Hyundai, Renault, MGI<br>Utilisation: <strong>88%</strong></div>
+        <div class="perf-bar"><div class="perf-fill" style="width:88%;background:#EF9F27"></div></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#7F77DD">Sanand</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">TATA, Ford Sanand<br>Utilisation: <strong>76%</strong></div>
+        <div class="perf-bar"><div class="perf-fill" style="width:76%;background:#7F77DD"></div></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:#D85A30">Sahibabad</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">MSIL, TATA, Ashok Leyland<br>Utilisation: <strong>82%</strong></div>
+        <div class="perf-bar"><div class="perf-fill" style="width:82%;background:#D85A30"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     INVENTORY SCREEN
+══════════════════════════════════════════════════ -->
+<div id="scr-inventory" class="scr">
+  <div class="kg">
+    <div class="kpi"><div class="kpi-l">Total inventory (BWL)</div><div class="kpi-v">₹244.5 Cr</div><div class="kpi-d wn">40.2 days</div></div>
+    <div class="kpi"><div class="kpi-l">Total inventory (CNS)</div><div class="kpi-v">₹52.5 Cr</div><div class="kpi-d wn">54.2 days</div></div>
+    <div class="kpi"><div class="kpi-l">Obsolescence (BWL)</div><div class="kpi-v">₹13.7 Cr</div><div class="kpi-d dn">YTM</div></div>
+    <div class="kpi"><div class="kpi-l">Savings actual</div><div class="kpi-v">₹155.6 L</div><div class="kpi-d up">vs ₹152.5 L target</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">Inventory by Plant &amp; Category — YTM Oct'24</div>
+    <table class="tbl">
+      <thead><tr>
+        <th style="text-align:left">Plant</th>
+        <th>Total (₹Cr)</th><th>RM (₹Cr)</th><th>WIP (₹Cr)</th><th>FG (₹Cr)</th>
+        <th>Days</th><th>RM Days</th><th>WIP Days</th><th>FG Days</th>
+        <th>Obsol (₹Cr)</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Bawal (BWL)</td><td>172.6</td><td>53.4</td><td>57.5</td><td>61.6</td><td class="wn">19.8</td><td>6.1</td><td>6.6</td><td>7.1</td><td class="dn">8.1</td><td><span class="tag tg">On target</span></td></tr>
+        <tr><td>Sahibabad (SBD)</td><td>202.5</td><td>182.5</td><td>18.9</td><td>1.1</td><td class="dn">35.3</td><td>31.8</td><td>3.3</td><td>0.2</td><td class="wn">0.6</td><td><span class="tag ta">Watch</span></td></tr>
+        <tr><td>Chennai (CNS)</td><td>52.5</td><td>10.2</td><td>39.6</td><td>2.7</td><td class="dn">54.2 ⚠</td><td>8.7</td><td>33.7</td><td>2.3</td><td class="dn">2.0</td><td><span class="tag tr">Over target</span></td></tr>
+        <tr class="tr-tot"><td>India Total</td><td>427.6</td><td>246.1</td><td>116.0</td><td>65.4</td><td class="wn">36.4</td><td>15.5</td><td>14.5</td><td>3.2</td><td class="dn">10.7</td><td><span class="tag ta">Review</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="ct">Key observations</div>
+    <div style="font-size:11px;line-height:1.7;color:var(--color-text-secondary)">
+      <p>• <strong>Chennai WIP high at 33.7 days</strong> — driven by Renault QA issue causing supply delays from Bawal. Needs priority resolution.</p>
+      <p>• <strong>Sahibabad RM elevated at 31.8 days</strong> — strategic decision includes Manesar buffer + SCHD drop for VW/MG. Monitor GIT pre-arrivals.</p>
+      <p>• <strong>Bawal on-target at 19.8 days</strong> — below 40-day threshold. FG at 7.1 days driven by M&M Manesar, MSIL, TATA demand spikes.</p>
+      <p>• <strong>Obsolescence: ₹10.7 Cr</strong> — BWL accounts for ₹8.1 Cr (13-month non-moving). Provision review required in next S&OP cycle.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     S&OP REVIEW SCREEN (with scorecard)
+══════════════════════════════════════════════════ -->
+<div id="scr-review" class="scr">
+  <!-- KPI Summary Row -->
+  <div class="kg5">
+    <div class="kpi"><div class="kpi-l">Demand KPI — OTIF</div><div class="kpi-v" style="font-size:16px">Target: 100%</div><div class="kpi-d dn">Ref. Customer Delivery</div></div>
+    <div class="kpi"><div class="kpi-l">Forecast Accuracy</div><div class="kpi-v" style="font-size:16px">84%</div><div class="kpi-d up">+2.1pp vs prior</div></div>
+    <div class="kpi"><div class="kpi-l">Total Inventory Days</div><div class="kpi-v" style="font-size:16px">35.3 d</div><div class="kpi-d wn">Target: 40 d</div></div>
+    <div class="kpi"><div class="kpi-l">Outbound Freight %</div><div class="kpi-v" style="font-size:16px">0.26%</div><div class="kpi-d wn">Tgt: 0.39%</div></div>
+    <div class="kpi"><div class="kpi-l">Savings YTM</div><div class="kpi-v" style="font-size:16px">₹155.6 L</div><div class="kpi-d up">vs ₹125 L target</div></div>
+  </div>
+
+  <!-- Scorecard Grid -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+      <div class="ct" style="margin:0">Supply Chain Scorecard — SFC India Sealings (YTM Oct'24)</div>
+      <div style="display:flex;gap:10px;font-size:10px;color:var(--color-text-secondary)">
+        <span><span class="sc-dot dot-g" style="display:inline-block;vertical-align:middle;margin-right:3px"></span>Green ≥ target</span>
+        <span><span class="sc-dot dot-a" style="display:inline-block;vertical-align:middle;margin-right:3px"></span>Amber ±5%</span>
+        <span><span class="sc-dot dot-r" style="display:inline-block;vertical-align:middle;margin-right:3px"></span>Red &lt; target</span>
+      </div>
+    </div>
+    <div class="sc-grid">
+      <!-- Customer -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">🎯 Customer Delivery</div>
+        <div class="sc-row"><span class="sc-name">OTIF — Tata</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">OTIF — FCA</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">OTIF — Maruti</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">OTIF — Nissan</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">OTIF — M&amp;M</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">OTIF — Hyundai</span><span class="sc-val" style="color:#3B9B3B">100%</span><span class="sc-tgt">Tgt 100%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Mat. rejection cost</span><span class="sc-val" style="color:#E24B4A">₹36.8 L</span><span class="sc-tgt">—</span><span class="sc-dot dot-r"></span></div>
+      </div>
+
+      <!-- Freight -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">🚛 Freight &amp; Logistics</div>
+        <div class="sc-row"><span class="sc-name">Outbound freight (total)</span><span class="sc-val" style="color:#3B9B3B">₹46.9 L</span><span class="sc-tgt">0.39% of sales</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Outbound freight % sales</span><span class="sc-val" style="color:#3B9B3B">0.26%</span><span class="sc-tgt">Tgt: ok</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Premium outbound freight</span><span class="sc-val" style="color:#EF9F27">₹1.75 L</span><span class="sc-tgt">Tgt: 0</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">IC Inbound freight</span><span class="sc-val" style="color:#3B9B3B">₹19.6 L</span><span class="sc-tgt">0.39% of sales</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Inbound import freight</span><span class="sc-val" style="color:#3B9B3B">₹264.0 L</span><span class="sc-tgt">2.15%</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Demurrage &amp; detention</span><span class="sc-val" style="color:#3B9B3B">₹0</span><span class="sc-tgt">Tgt: 0</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Inbound freight on sales</span><span class="sc-val" style="color:#3B9B3B">0.00%</span><span class="sc-tgt">—</span><span class="sc-dot dot-g"></span></div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">📦 Inventory</div>
+        <div class="sc-row"><span class="sc-name">Total inventory (SBD)</span><span class="sc-val" style="color:#EF9F27">₹202.5 Cr</span><span class="sc-tgt">Tgt 40d</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">RM days (SBD)</span><span class="sc-val" style="color:#E24B4A">31.8 d</span><span class="sc-tgt">—</span><span class="sc-dot dot-r"></span></div>
+        <div class="sc-row"><span class="sc-name">WIP days (SBD)</span><span class="sc-val" style="color:#3B9B3B">3.3 d</span><span class="sc-tgt">—</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">FG days (SBD)</span><span class="sc-val" style="color:#3B9B3B">0.2 d</span><span class="sc-tgt">—</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Inventory variance (SBD)</span><span class="sc-val" style="color:#EF9F27">₹27.1 L</span><span class="sc-tgt">—</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Obsolescence (SBD)</span><span class="sc-val" style="color:#EF9F27">₹8.06 L</span><span class="sc-tgt">—</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Non-moving (12m)</span><span class="sc-val" style="color:#EF9F27">₹8.06 L</span><span class="sc-tgt">—</span><span class="sc-dot dot-a"></span></div>
+      </div>
+
+      <!-- Demand KPIs -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">📈 Demand</div>
+        <div class="sc-row"><span class="sc-name">Sales to customers (SBD)</span><span class="sc-val" style="color:#EF9F27">₹2,200.9 Cr</span><span class="sc-tgt">Behind budget</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Sales incl. IC (SBD)</span><span class="sc-val">₹1,793.7 Cr</span><span class="sc-tgt">—</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Forecast accuracy</span><span class="sc-val" style="color:#3B9B3B">84%</span><span class="sc-tgt">Tgt 85%</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Forecast bias</span><span class="sc-val" style="color:#EF9F27">-4.8%</span><span class="sc-tgt">Tgt: 0</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Sales BWL YTM</span><span class="sc-val">₹2,546 Cr</span><span class="sc-tgt">Behind</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Sales CNS YTM</span><span class="sc-val">₹363.9 Cr</span><span class="sc-tgt">Behind</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">ICP vs Actual</span><span class="sc-val" style="color:#3B9B3B">94–116%</span><span class="sc-tgt">Tgt 95–105%</span><span class="sc-dot dot-a"></span></div>
+      </div>
+
+      <!-- People & Savings -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">👥 People &amp; Savings</div>
+        <div class="sc-row"><span class="sc-name">FTE White collar (SBD)</span><span class="sc-val" style="color:#3B9B3B">13</span><span class="sc-tgt">Tgt 13</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">FTE Blue collar (SBD)</span><span class="sc-val" style="color:#3B9B3B">8</span><span class="sc-tgt">Tgt 8</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">FTE White collar (BWL)</span><span class="sc-val" style="color:#3B9B3B">7</span><span class="sc-tgt">Tgt 7</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">FTE Blue collar (BWL)</span><span class="sc-val" style="color:#3B9B3B">1</span><span class="sc-tgt">Tgt 1</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Savings target (BWL)</span><span class="sc-val">₹62.5 L</span><span class="sc-tgt">YTM</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Savings actual (BWL)</span><span class="sc-val" style="color:#3B9B3B">₹58.8 L</span><span class="sc-tgt">vs ₹62.5 L</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Savings actual (CNS)</span><span class="sc-val" style="color:#3B9B3B">₹92.1 L</span><span class="sc-tgt">YTM</span><span class="sc-dot dot-g"></span></div>
+      </div>
+
+      <!-- S&OP Health -->
+      <div class="sc-cat">
+        <div class="sc-cat-title">🔄 S&OP Cycle Health</div>
+        <div class="sc-row"><span class="sc-name">Demand review on time</span><span class="sc-val" style="color:#3B9B3B">✓</span><span class="sc-tgt">Day -3</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">Supply review on time</span><span class="sc-val" style="color:#3B9B3B">✓</span><span class="sc-tgt">Day -1</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">MPS updated (incl. RM)</span><span class="sc-val" style="color:#3B9B3B">✓</span><span class="sc-tgt">Day +1</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">ICP adherence</span><span class="sc-val" style="color:#EF9F27">94–116%</span><span class="sc-tgt">95–105%</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">Gap-close actions logged</span><span class="sc-val" style="color:#EF9F27">7 open</span><span class="sc-tgt">Tgt 0</span><span class="sc-dot dot-a"></span></div>
+        <div class="sc-row"><span class="sc-name">VulOps escalated</span><span class="sc-val" style="color:#3B9B3B">2</span><span class="sc-tgt">—</span><span class="sc-dot dot-g"></span></div>
+        <div class="sc-row"><span class="sc-name">SC Mgmt review done</span><span class="sc-val" style="color:#3B9B3B">✓</span><span class="sc-tgt">Day +2</span><span class="sc-dot dot-g"></span></div>
+      </div>
+    </div>
+    <div class="wf" style="margin-top:6px">Data sourced from SFC India Scorecard (SBD/BWL/CNS sheets). Values in INR×1000 converted to Cr (÷10,000). YTM = Year-to-Month Oct'24.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     CONTROL TOWER SCREEN
+══════════════════════════════════════════════════ -->
+<div id="scr-controltower" class="scr">
+
+  <!-- Header Banner -->
+  <div class="ct-header">
+    <div>
+      <div class="ct-title-main">⚡ Supply Chain Control Tower</div>
+      <div class="ct-title-sub">SFC India — Sealings Division · Oct'24 · Real-time KPI pulse</div>
+    </div>
+    <div style="display:flex;gap:12px;font-size:11px">
+      <div style="text-align:center"><div style="font-size:20px;font-weight:700">8</div><div style="opacity:.7">Green KPIs</div></div>
+      <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#EF9F27">9</div><div style="opacity:.7">Amber</div></div>
+      <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:#ff6b6b">3</div><div style="opacity:.7">Red</div></div>
+    </div>
+  </div>
+
+  <!-- Tier 1: Customer Service -->
+  <div class="card">
+    <div class="ct-section">🎯 Customer Service</div>
+    <div class="ct-grid">
+      <div class="ct-kpi green">
+        <div class="ct-kpi-label">OTIF — All customers</div>
+        <div class="ct-kpi-val">100%</div>
+        <div class="ct-kpi-delta up">On target</div>
+        <div class="ct-kpi-tgt">Target: 100%</div>
+      </div>
+      <div class="ct-kpi amber">
+        <div class="ct-kpi-label">Forecast accuracy</div>
+        <div class="ct-kpi-val">84%</div>
+        <div class="ct-kpi-delta wn">-1pp vs target</div>
+        <div class="ct-kpi-tgt">Target: 85%</div>
+      </div>
+      <div class="ct-kpi amber">
+        <div class="ct-kpi-label">ICP adherence</div>
+        <div class="ct-kpi-val">94–116%</div>
+        <div class="ct-kpi-delta wn">Range ±5% target</div>
+        <div class="ct-kpi-tgt">Target: 95–105%</div>
+      </div>
+      <div class="ct-kpi red">
+        <div class="ct-kpi-label">Material rejection cost</div>
+        <div class="ct-kpi-val">₹36.8 L</div>
+        <div class="ct-kpi-delta dn">Above threshold</div>
+        <div class="ct-kpi-tgt">Target: ₹0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 2: Inventory & MPS -->
+  <div class="card">
+    <div class="ct-section">📦 Inventory &amp; MPS</div>
+    <div class="ct-grid">
+      <div class="ct-kpi green">
+        <div class="ct-kpi-label">Inventory days — BWL</div>
+        <div class="ct-kpi-val">19.8 d</div>
+        <div class="ct-kpi-delta up">Below 40d target</div>
+        <div class="ct-kpi-tgt">Target: 40 days</div>
+      </div>
+      <div class="ct-kpi amber">
+        <div class="ct-kpi-label">Inventory days — SBD</div>
+        <div class="ct-kpi-val">35.3 d</div>
+        <div class="ct-kpi-delta wn">RM elevated (31.8d)</div>
+        <div class="ct-kpi-tgt">Target: 40 days</div>
+      </div>
+      <div class="ct-kpi red">
+        <div class="ct-kpi-label">Inventory days — CNS</div>
+        <div class="ct-kpi-val">54.2 d</div>
+        <div class="ct-kpi-delta dn">+14d over target</div>
+        <div class="ct-kpi-tgt">Target: 40 days</div>
+      </div>
+      <div class="ct-kpi amber">
+        <div class="ct-kpi-label">Obsolescence</div>
+        <div class="ct-kpi-val">₹10.7 Cr</div>
+        <div class="ct-kpi-delta wn">BWL: ₹8.1 Cr</div>
+        <div class="ct-kpi-tgt">Target: minimise</div>
+      </div>
+    </div>
+    <!-- Inventory Split Bars -->
+    <div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div>
+        <div style="font-size:10px;font-weight:600;margin-bottom:4px;color:var(--color-text-secondary)">Bawal — RM/WIP/FG split</div>
+        <div style="display:flex;gap:2px;height:16px">
+          <div style="background:#185FA5;border-radius:3px 0 0 3px;flex:53.4" title="RM ₹53.4Cr"></div>
+          <div style="background:#EF9F27;flex:57.5" title="WIP ₹57.5Cr"></div>
+          <div style="background:#3B9B3B;border-radius:0 3px 3px 0;flex:61.6" title="FG ₹61.6Cr"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--color-text-tertiary);margin-top:2px"><span>RM 31%</span><span>WIP 33%</span><span>FG 36%</span></div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;margin-bottom:4px;color:var(--color-text-secondary)">Sahibabad — RM/WIP/FG split</div>
+        <div style="display:flex;gap:2px;height:16px">
+          <div style="background:#185FA5;border-radius:3px 0 0 3px;flex:182.5" title="RM ₹182.5Cr"></div>
+          <div style="background:#EF9F27;flex:18.9" title="WIP ₹18.9Cr"></div>
+          <div style="background:#3B9B3B;border-radius:0 3px 3px 0;flex:1.1" title="FG ₹1.1Cr"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--color-text-tertiary);margin-top:2px"><span>RM 90%</span><span>WIP 9%</span><span>FG 1%</span></div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;margin-bottom:4px;color:var(--color-text-secondary)">Chennai — RM/WIP/FG split</div>
+        <div style="display:flex;gap:2px;height:16px">
+          <div style="background:#185FA5;border-radius:3px 0 0 3px;flex:10.2" title="RM ₹10.2Cr"></div>
+          <div style="background:#EF9F27;flex:39.6" title="WIP ₹39.6Cr"></div>
+          <div style="background:#3B9B3B;border-radius:0 3px 3px 0;flex:2.7" title="FG ₹2.7Cr"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--color-text-tertiary);margin-top:2px"><span>RM 20%</span><span>WIP 75%</span><span>FG 5%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 3: Freight & Cost -->
+  <div class="card">
+    <div class="ct-section">🚛 Freight &amp; Cost</div>
+    <div class="ct-grid">
+      <div class="ct-kpi green">
+        <div class="ct-kpi-label">Outbound freight % sales</div>
+        <div class="ct-kpi-val">0.26%</div>
+        <div class="ct-kpi-delta up">Below 0.39% target</div>
+        <div class="ct-kpi-tgt">Target: 0.39%</div>
+      </div>
+      <div class="ct-kpi green">
+        <div class="ct-kpi-label">Premium freight (outbound)</div>
+        <div class="ct-kpi-val">₹1.75 L</div>
+        <div class="ct-kpi-delta up">Minimal, 1 event</div>
+        <div class="ct-kpi-tgt">Target: ₹0</div>
+      </div>
+      <div class="ct-kpi green">
+        <div class="ct-kpi-label">Inbound import freight</div>
+        <div class="ct-kpi-val">₹264.0 L</div>
+        <div class="ct-kpi-delta up">Within 2.15% target</div>
+        <div class="ct-kpi-tgt">Target: 2.15%</div>
+      </div>
+      <div class="ct-kpi amber">
+        <div class="ct-kpi-label">IC Premium freight % sales</div>
+        <div class="ct-kpi-val">0.011%</div>
+        <div class="ct-kpi-delta wn">Packing issue (BWL)</div>
+        <div class="ct-kpi-tgt">Target: 0.0071%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 4: Capacity & People -->
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:11px">
+    <div class="card">
+      <div class="ct-section">🏭 Capacity Utilisation</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:11px;width:90px;flex-shrink:0">Bawal</div>
+          <div style="flex:1"><div class="perf-bar" style="height:10px"><div class="perf-fill" style="width:94%;background:#185FA5;height:10px"></div></div></div>
+          <div style="font-size:11px;font-weight:600;width:35px;color:#185FA5">94%</div><span class="tag tg">Good</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:11px;width:90px;flex-shrink:0">Chennai</div>
+          <div style="flex:1"><div class="perf-bar" style="height:10px"><div class="perf-fill" style="width:88%;background:#EF9F27;height:10px"></div></div></div>
+          <div style="font-size:11px;font-weight:600;width:35px;color:#EF9F27">88%</div><span class="tag ta">Watch</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:11px;width:90px;flex-shrink:0">Sanand</div>
+          <div style="flex:1"><div class="perf-bar" style="height:10px"><div class="perf-fill" style="width:76%;background:#7F77DD;height:10px"></div></div></div>
+          <div style="font-size:11px;font-weight:600;width:35px;color:#7F77DD">76%</div><span class="tag tg">Good</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:11px;width:90px;flex-shrink:0">Sahibabad</div>
+          <div style="flex:1"><div class="perf-bar" style="height:10px"><div class="perf-fill" style="width:82%;background:#D85A30;height:10px"></div></div></div>
+          <div style="font-size:11px;font-weight:600;width:35px;color:#D85A30">82%</div><span class="tag tg">Good</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct-section">🔔 Active Alerts</div>
+      <div class="ct-alert red-a">
+        <div class="ct-alert-icon">🔴</div>
+        <div class="ct-alert-body">
+          <div class="ct-alert-title">CNS Inventory 54d — WIP 33.7d</div>
+          <div class="ct-alert-sub">Renault QA issue → supply delay from Bawal. Priority resolution needed.</div>
+        </div>
+      </div>
+      <div class="ct-alert amber-a">
+        <div class="ct-alert-icon">🟡</div>
+        <div class="ct-alert-body">
+          <div class="ct-alert-title">SBD RM elevated — 31.8 days</div>
+          <div class="ct-alert-sub">Strategic buffer + SCHD drop (VW/MG). GIT pre-arrivals accelerated.</div>
+        </div>
+      </div>
+      <div class="ct-alert amber-a">
+        <div class="ct-alert-icon">🟡</div>
+        <div class="ct-alert-body">
+          <div class="ct-alert-title">Sales behind budget — 3 plants</div>
+          <div class="ct-alert-sub">SBD, BWL, CNS below target. ICP-to-budget gap closing actions open.</div>
+        </div>
+      </div>
+      <div class="ct-alert green-a">
+        <div class="ct-alert-icon">🟢</div>
+        <div class="ct-alert-body">
+          <div class="ct-alert-title">Savings: ₹155.6 L vs ₹125 L target</div>
+          <div class="ct-alert-sub">BWL + CNS combined savings ahead of plan. Sustain momentum.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI SCREEN -->
+<div id="scr-ai" class="scr">
+  <div class="card" style="height:500px;display:flex;flex-direction:column">
+    <div id="ai-thread" style="flex:1;overflow-y:auto;padding-bottom:4px">
+      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:9px 12px;margin-bottom:8px;font-size:12px;line-height:1.5">
+        <strong style="font-size:10px;color:var(--color-text-tertiary);display:block;margin-bottom:3px">S&OP Assistant</strong>
+        Dec'22 plan loaded. Total ICP ₹35.56 Cr INR across 5 plants. Top demand: TML (27%), MSIL (19%), TATA (14%). 18-month projection active — what would you like to explore?
+      </div>
+    </div>
+    <div style="border-top:0.5px solid var(--color-border-tertiary);padding-top:9px;display:flex;gap:8px">
+      <input id="ai-inp" type="text" placeholder="Ask about demand, inventory, freight, scorecard…" style="flex:1;font-size:12px;padding:6px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)" onkeydown="if(event.key==='Enter')askAI()">
+      <button onclick="askAI()" style="padding:6px 11px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;color:var(--color-text-primary);font-size:12px"><i class="ti ti-send" aria-hidden="true"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERVIEW SCREEN -->
+<div id="scr-overview" class="scr">
+  <div class="kg">
+    <div class="kpi"><div class="kpi-l">Forecast accuracy</div><div class="kpi-v">84%</div><div class="kpi-d up">+2.1pp vs last month</div></div>
+    <div class="kpi"><div class="kpi-l">18m revenue (fcst)</div><div class="kpi-v" id="ov-rev">–</div><div class="kpi-d up">Base scenario</div></div>
+    <div class="kpi"><div class="kpi-l">18m CM target</div><div class="kpi-v" id="ov-cm">–</div><div class="kpi-d">Avg CM%</div></div>
+    <div class="kpi"><div class="kpi-l">Dec'22 ICP total</div><div class="kpi-v">₹35.6 Cr</div><div class="kpi-d wn">5 plants</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">Navigate to screens for detailed views</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px">
+      <div onclick="goNav('workflow',document.querySelector('[onclick*=workflow]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">🗂</div>
+        <div style="font-size:12px;font-weight:600">Workflow</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">Monthly S&OP cycle steps, owners, meeting sequence</div>
+      </div>
+      <div onclick="goNav('demand',document.querySelector('[onclick*=demand]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">📈</div>
+        <div style="font-size:12px;font-weight:600">Demand</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">18-month revenue, CM, forecast accuracy, SKU bias</div>
+      </div>
+      <div onclick="goNav('supply',document.querySelector('[onclick*=supply]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">🏭</div>
+        <div style="font-size:12px;font-weight:600">Supply & MPS</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">RM/WIP/FG split, RCCP, capacity utilisation</div>
+      </div>
+      <div onclick="goNav('review',document.querySelector('[onclick*=review]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">✅</div>
+        <div style="font-size:12px;font-weight:600">S&OP Summary</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">Full KPI scorecard — OTIF, freight, inventory, savings</div>
+      </div>
+      <div onclick="goNav('controltower',document.querySelector('[onclick*=controltower]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">⚡</div>
+        <div style="font-size:12px;font-weight:600">Control Tower</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">All SC KPIs in one view — alerts, capacity, freight</div>
+      </div>
+      <div onclick="goNav('inventory',document.querySelector('[onclick*=inventory]'))" style="cursor:pointer;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary)">
+        <div style="font-size:18px;margin-bottom:5px">📦</div>
+        <div style="font-size:12px;font-weight:600">Inventory</div>
+        <div style="font-size:10px;color:var(--color-text-secondary)">Plant-level stock, obsolescence, variance analysis</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const EUR_RATE = 88;
+const MONTHS18 = ['Dec\'22','Jan\'23','Feb\'23','Mar\'23','Apr\'23','May\'23','Jun\'23','Jul\'23','Aug\'23','Sep\'23','Oct\'23','Nov\'23','Dec\'23','Jan\'24','Feb\'24','Mar\'24','Apr\'24','May\'24'];
+const ACT_END = 3;
+const PLANT_DATA = {
+  BWL:{name:'Bawal',    share:0.568, color:'#378ADD', icp:[20.22,21.36,20.51], prod:[20.57,20.97,19.20], inv:[5.78,5.46,4.22], rm:53.4, wip:57.5, fg:61.6, total:172.6, rmDays:6.1, wipDays:6.6, fgDays:7.1, totalDays:19.8},
+  MNR:{name:'Manesar',  share:0.147, color:'#1D9E75', icp:[5.24,6.27,5.91],   prod:[4.26,6.09,5.87],   inv:[1.57,1.40,1.37], rm:4.45, wip:44.7, fg:93.1, total:null, rmDays:null, wipDays:null, fgDays:null, totalDays:null},
+  CNS:{name:'Chennai',  share:0.116, color:'#EF9F27', icp:[4.12,4.54,4.96],   prod:[4.50,5.65,4.94],   inv:[2.34,3.46,3.44], rm:10.2, wip:39.6, fg:2.7, total:52.5, rmDays:8.7, wipDays:33.7, fgDays:2.3, totalDays:54.2},
+  SND:{name:'Sanand',   share:0.114, color:'#7F77DD', icp:[4.05,5.36,4.37],   prod:[3.96,4.65,4.28],   inv:[1.29,0.58,0.48], rm:null, wip:null, fg:null, total:null, rmDays:null, wipDays:null, fgDays:null, totalDays:null},
+  SBD:{name:'Sahibabad',share:0.054, color:'#D85A30', icp:[1.93,1.97,1.82],   prod:[1.55,1.82,1.73],   inv:[0.92,0.77,0.68], rm:182.5, wip:18.9, fg:1.1, total:202.5, rmDays:31.8, wipDays:3.3, fgDays:0.2, totalDays:35.3},
+};
+const ACT_INR = [35.56, 39.49, 37.58];
+const ACT_EUR = ACT_INR.map(v=>+(v/EUR_RATE*10).toFixed(3));
+const CUSTS = [
+  {name:'TML',share:0.271,color:'#378ADD'},{name:'MSIL',share:0.190,color:'#1D9E75'},
+  {name:'TATA',share:0.136,color:'#EF9F27'},{name:'M&M',share:0.097,color:'#E24B4A'},
+  {name:'RNAIPL/Nissan',share:0.093,color:'#7F77DD'},{name:'VW',share:0.061,color:'#D85A30'},
+  {name:'Ford',share:0.079,color:'#888780'},{name:'FCA',share:0.036,color:'#0F6E56'},
+  {name:'MGI/Others',share:0.037,color:'#533AAB'},
+];
+const SKU_DATA = [
+  {sku:'AL-1024',desc:'Welt Bodyside FrRH',mape:5.2,bias:3.1,lags:[2.4,1.8,3.1],status:'tg',stl:'Approved',worst:false,action:'Stable. Maintain model.'},
+  {sku:'DE-4421',desc:'GlassRun Fr Dr RH',mape:19.6,bias:-22.3,lags:[-11.4,-17.6,-22.3],status:'ta',stl:'Override',worst:true,action:'Worsening over-fcst. Apply demand sensing urgently.'},
+  {sku:'FR-0912',desc:'Profile NL-DE',mape:14.1,bias:16.8,lags:[9.5,13.2,16.8],status:'tb',stl:'Pending',worst:true,action:'Consistent under-fcst. Add promo calendar to model.'},
+  {sku:'MNR-202',desc:'GlassRun Rr Dr RH',mape:7.4,bias:-4.8,lags:[-1.2,-3.1,-4.8],status:'tg',stl:'Approved',worst:false,action:'Mild worsening. Validate mix shift.'},
+  {sku:'MNR-215',desc:'Welt Bodyside RrRH',mape:8.9,bias:-7.2,lags:[-6.9,-8.1,-7.2],status:'tg',stl:'Approved',worst:false,action:'Flat over-fcst. Check pull-forward.'},
+  {sku:'NL-0571',desc:'Dog Leg Seal RH',mape:6.1,bias:2.4,lags:[1.9,3.1,2.4],status:'tg',stl:'Approved',worst:false,action:'Good accuracy. No action needed.'},
+];
+
+// ── WORKFLOW DATA ────────────────────────────────────
+const WF_STEPS = [
+  {num:'Step 1',title:'Data Refresh',sub:'D-4 to D-3',owner:'Planning team',
+   detail:'Data inputs: actual sales vs ICP, inventory levels (RM/WIP/FG), supplier confirmations, customer order patterns. Demand manager reconciles SP actuals vs forecast. System updates: MPS actuals loaded, GIT positions confirmed.'},
+  {num:'Step 2',title:'Demand Review',sub:'Day -3 · ICP',owner:'Demand Manager',
+   detail:'Key focus: "How much will we sell and to whom?" Review forecast accuracy & BIAS by SKU and customer. Approve ICP for next month. Identify VulOps (vulnerable operations). Agree demand gap-close actions with Sales & Marketing.'},
+  {num:'Step 3',title:'Supply Review',sub:'Day -1 · RCCP',owner:'Supply Plg Mgr',
+   detail:'Key focus: "How can we source, make and deliver?" RCCP update across all 5 plants. Confirm RM availability (incl. imports/GIT). Validate WIP and FG plans vs customer requirements. Identify capacity constraints and escalation triggers.'},
+  {num:'Step 4',title:'S&OP Meeting',sub:'Day 0',owner:'BU Head',
+   detail:'Key focus: "What is the overall picture? What decisions close gaps?" Reconcile demand vs supply. Approve IBP plan. Review P&L implications. Finalise VulOps decisions. Approve resource plan. Document action owners and deadlines.'},
+  {num:'Step 5',title:'MPS Update',sub:'Day +1',owner:'Site Planners',
+   detail:'Issue final MPS including RM procurement plan, WIP scheduling across lines, FG build schedule by customer. Trigger RM purchase orders and IC transfers. Update system records. Confirm delivery commitments to customers.'},
+  {num:'Step 6',title:'SC Mgmt Review',sub:'Day +2',owner:'SC Director',
+   detail:'Review scorecard KPIs vs targets: OTIF, inventory days, freight %, forecast accuracy. Escalate red items. Confirm action owners. Update senior leadership. Set agenda for next S&OP cycle based on lessons learned.'},
+];
+
+let wfActive = null;
+function renderWorkflow(){
+  const flow = document.getElementById('wf-flow');
+  flow.innerHTML = WF_STEPS.map((s,i)=>`
+    <div class="wf-step">
+      <div class="wf-box ${wfActive===i?'active':''}" onclick="selectWF(${i},this)">
+        <div class="wf-num">${s.num}</div>
+        <div class="wf-title">${s.title}</div>
+        <div class="wf-sub">${s.sub}</div>
+        <div class="wf-owner">${s.owner}</div>
+      </div>
+    </div>`).join('');
+}
+function selectWF(i,el){
+  wfActive=i;
+  renderWorkflow();
+  document.getElementById('wf-detail').textContent = WF_STEPS[i].detail;
+}
+
+// ── MPS INVENTORY BARS ────────────────────────────────
+let invView = 'value';
+function setInvView(v,el){
+  invView=v;
+  el.closest('.tab-r').querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  renderMPS();
+}
+function renderMPS(){
+  const bars = document.getElementById('mps-bars');
+  const summary = document.getElementById('mps-summary');
+  const tbody = document.getElementById('mps-tbl-body');
+  const showValue = invView==='value';
+
+  const plants = Object.entries(PLANT_DATA).filter(([k,p])=>p.total!==null);
+  const maxVal = Math.max(...plants.map(([k,p])=>showValue?p.total:p.totalDays||0));
+
+  bars.innerHTML = plants.map(([k,p])=>{
+    const h = 120;
+    const rmH = showValue ? Math.round(p.rm/maxVal*h) : Math.round((p.rmDays/maxVal)*h);
+    const wipH = showValue ? Math.round(p.wip/maxVal*h) : Math.round((p.wipDays/maxVal)*h);
+    const fgH = showValue ? Math.round(p.fg/maxVal*h) : Math.round((p.fgDays/maxVal)*h);
+    const rmV = showValue?p.rm.toFixed(1):p.rmDays.toFixed(1);
+    const wipV = showValue?p.wip.toFixed(1):p.wipDays.toFixed(1);
+    const fgV = showValue?p.fg.toFixed(1):p.fgDays.toFixed(1);
+    const unit = showValue?'Cr':'d';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="height:${h}px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;width:40px">
+        <div style="height:${fgH}px;background:#3B9B3B;border-radius:3px 3px 0 0;min-height:4px" title="FG: ${fgV}${unit}"></div>
+        <div style="height:${wipH}px;background:#EF9F27;min-height:4px" title="WIP: ${wipV}${unit}"></div>
+        <div style="height:${rmH}px;background:#185FA5;min-height:4px" title="RM: ${rmV}${unit}"></div>
+      </div>
+      <div style="font-size:9.5px;font-weight:600;color:${p.color};text-align:center">${p.name.split(' ')[0]}</div>
+      <div style="font-size:9px;color:var(--color-text-tertiary)">${showValue?'₹'+p.total.toFixed(0)+'Cr':p.totalDays.toFixed(1)+'d'}</div>
+    </div>`;
+  }).join('');
+
+  // Summary
+  const totRM = plants.reduce((s,[k,p])=>s+p.rm,0);
+  const totWIP = plants.reduce((s,[k,p])=>s+p.wip,0);
+  const totFG = plants.reduce((s,[k,p])=>s+p.fg,0);
+  const tot = plants.reduce((s,[k,p])=>s+p.total,0);
+  summary.innerHTML = `
+    <div style="font-size:11px;margin-bottom:4px"><strong style="color:#185FA5">RM: ₹${totRM.toFixed(1)} Cr</strong></div>
+    <div style="font-size:11px;margin-bottom:4px"><strong style="color:#EF9F27">WIP: ₹${totWIP.toFixed(1)} Cr</strong></div>
+    <div style="font-size:11px;margin-bottom:4px"><strong style="color:#3B9B3B">FG: ₹${totFG.toFixed(1)} Cr</strong></div>
+    <div style="height:0.5px;background:var(--color-border-secondary);margin:5px 0"></div>
+    <div style="font-size:12px;font-weight:600">Total: ₹${tot.toFixed(1)} Cr</div>
+  `;
+
+  tbody.innerHTML = plants.map(([k,p])=>{
+    const total = p.total; const rm = p.rm; const wip = p.wip; const fg = p.fg;
+    const pctRM = (rm/total*100).toFixed(0);
+    const pctWIP = (wip/total*100).toFixed(0);
+    const pctFG = (fg/total*100).toFixed(0);
+    const dColor = p.totalDays>40?'#A32D2D':p.totalDays>35?'#854F0B':'#3B6D11';
+    const dTag = p.totalDays>40?'tr':p.totalDays>35?'ta':'tg';
+    const dStatus = p.totalDays>40?'Over target':p.totalDays>35?'Watch':'On target';
+    return `<tr>
+      <td><span style="width:8px;height:8px;border-radius:2px;background:${p.color};display:inline-block;vertical-align:middle;margin-right:4px"></span>${p.name}</td>
+      <td>${total.toFixed(1)}</td>
+      <td style="color:#185FA5">${rm.toFixed(1)}</td><td style="color:#185FA5">${pctRM}%</td>
+      <td style="color:#EF9F27">${wip.toFixed(1)}</td><td style="color:#EF9F27">${pctWIP}%</td>
+      <td style="color:#3B9B3B">${fg.toFixed(1)}</td><td style="color:#3B9B3B">${pctFG}%</td>
+      <td style="color:${dColor};font-weight:600">${p.totalDays.toFixed(1)}</td>
+      <td style="color:var(--color-text-tertiary)">40 d</td>
+      <td><span class="tag ${dTag}">${dStatus}</span></td>
+    </tr>`;
+  }).join('') + `<tr class="tr-tot">
+    <td>Total / India</td>
+    <td>${plants.reduce((s,[k,p])=>s+p.total,0).toFixed(1)}</td>
+    <td style="color:#185FA5">${totRM.toFixed(1)}</td><td style="color:#185FA5">${(totRM/(plants.reduce((s,[k,p])=>s+p.total,0))*100).toFixed(0)}%</td>
+    <td style="color:#EF9F27">${totWIP.toFixed(1)}</td><td style="color:#EF9F27">${(totWIP/(plants.reduce((s,[k,p])=>s+p.total,0))*100).toFixed(0)}%</td>
+    <td style="color:#3B9B3B">${totFG.toFixed(1)}</td><td style="color:#3B9B3B">${(totFG/(plants.reduce((s,[k,p])=>s+p.total,0))*100).toFixed(0)}%</td>
+    <td>—</td><td>—</td><td><span class="tag ta">Mixed</span></td>
+  </tr>`;
+}
+
+// ── DEMAND MODEL ──────────────────────────────────────
+let horizon=12, currentPlant='ALL', currentView='rev', currentBreak='plant';
+let charts={}, modelData=[];
+
+function getP(){
+  return {
+    growth:parseFloat(document.getElementById('sl-g').value)/100,
+    price:parseFloat(document.getElementById('sl-p').value),
+    esc:parseFloat(document.getElementById('sl-e').value)/100,
+    cm:parseFloat(document.getElementById('sl-c').value)/100,
+    cmimp:parseFloat(document.getElementById('sl-ci').value)/100,
+  };
+}
+function buildModel(){
+  const p=getP(); const BASE_EUR=ACT_EUR[0]; const BASE_VOL=BASE_EUR*1000/p.price;
+  modelData=MONTHS18.map((m,i)=>{
+    const seasonal=1+0.055*Math.sin((i+2)*Math.PI/6);
+    const mGrowth=Math.pow(1+p.growth,(i/12));
+    const mEsc=Math.pow(1+p.esc,(i/12));
+    const vol=+(BASE_VOL*mGrowth*seasonal).toFixed(1);
+    const priceMon=p.price*mEsc;
+    const rev=i<ACT_END?ACT_EUR[i]:+(vol*priceMon/1000).toFixed(3);
+    const cmPct=p.cm+p.cmimp*(i/12);
+    const cm=+(rev*cmPct).toFixed(3);
+    const type=i<ACT_END?'actual':i<14?'forecast':'projection';
+    return {m,i,vol:+vol.toFixed(0),rev,cm,cmPct:+(cmPct*100).toFixed(1),type};
+  });
+  const g=getP().growth;
+  document.getElementById('scen-chip').textContent=g>=0.10?'Upside scenario':g<0?'Downside scenario':'Base case · '+(g*100>=0?'+':'')+Math.round(g*100)+'% growth';
+}
+function getSlice(){
+  const d=modelData.slice(0,horizon);
+  if(currentPlant==='ALL')return d;
+  const sh=PLANT_DATA[currentPlant].share;
+  return d.map(m=>({...m,vol:Math.round(m.vol*sh),rev:+(m.rev*sh).toFixed(3),cm:+(m.cm*sh).toFixed(3)}));
+}
+function renderKPIs(){
+  const d=getSlice();
+  const rev=d.reduce((s,x)=>s+x.rev,0);
+  const cm=d.reduce((s,x)=>s+x.cm,0);
+  const vol=d.reduce((s,x)=>s+x.vol,0);
+  const cmPct=(cm/rev*100).toFixed(1);
+  const lastRev=d[d.length-1].rev; const firstRev=d[0].rev;
+  const growth=((lastRev/firstRev-1)*100).toFixed(1);
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi"><div class="kpi-l">${horizon}m revenue</div><div class="kpi-v">${rev.toFixed(1)} mEUR</div><div class="kpi-d ${growth>=0?'up':'dn'}">${growth>=0?'+':''}${growth}% end vs start</div></div>
+    <div class="kpi"><div class="kpi-l">${horizon}m CM total</div><div class="kpi-v">${cm.toFixed(1)} mEUR</div><div class="kpi-d up">Avg ${cmPct}% margin</div></div>
+    <div class="kpi"><div class="kpi-l">${horizon}m volume</div><div class="kpi-v">${(vol/1000).toFixed(1)}K Tn</div><div class="kpi-d">Sealings</div></div>
+    <div class="kpi"><div class="kpi-l">Dec'22 ICP (actual)</div><div class="kpi-v">₹35.6 Cr</div><div class="kpi-d">≈ 4.04 mEUR baseline</div></div>`;
+  const totRev=modelData.reduce((s,x)=>s+x.rev,0);
+  const totCM=modelData.reduce((s,x)=>s+x.cm,0);
+  const ovRevEl=document.getElementById('ov-rev');
+  const ovCMEl=document.getElementById('ov-cm');
+  if(ovRevEl)ovRevEl.textContent=totRev.toFixed(1)+' mEUR';
+  if(ovCMEl)ovCMEl.textContent=(totCM/totRev*100).toFixed(1)+'%';
+}
+function renderMainChart(){
+  if(charts.main){charts.main.destroy();}
+  const d=getSlice();
+  const labels=d.map(x=>x.m);
+  const titleMap={rev:`Revenue forecast — mEUR (${horizon}m)`,vol:`Volume forecast — Tn (${horizon}m)`,cm:`Contribution margin % (${horizon}m)`};
+  document.getElementById('main-chart-title').textContent=titleMap[currentView];
+  let ds1,ds2=null;
+  if(currentView==='rev'){
+    ds1={label:'Rev',data:d.map(x=>+x.rev.toFixed(3)),backgroundColor:d.map(x=>x.type==='actual'?'#85B7EB':x.type==='forecast'?'#378ADD':'#B5D4F4'),borderRadius:3,type:'bar'};
+    ds2={label:'CM',data:d.map(x=>+x.cm.toFixed(3)),type:'line',borderColor:'#1D9E75',backgroundColor:'transparent',borderWidth:2,pointRadius:2,tension:.35,yAxisID:'y2'};
+  } else if(currentView==='vol'){
+    ds1={label:'Vol',data:d.map(x=>x.vol),backgroundColor:d.map(x=>x.type==='actual'?'#85B7EB':x.type==='forecast'?'#378ADD':'#B5D4F4'),borderRadius:3,type:'bar'};
+  } else {
+    ds1={label:'CM%',data:d.map(x=>x.cmPct),type:'line',borderColor:'#1D9E75',backgroundColor:'#1D9E7522',fill:true,borderWidth:2,pointRadius:2,tension:.4};
+  }
+  const datasets=ds2?[ds1,ds2]:[ds1];
+  const scales={x:{ticks:{font:{size:9},maxRotation:45}},y:{ticks:{font:{size:9},callback:v=>currentView==='cm'?v+'%':v}}};
+  if(ds2)scales.y2={position:'right',ticks:{font:{size:9}},grid:{display:false}};
+  charts.main=new Chart(document.getElementById('c-main'),{type:'bar',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
+}
+function renderPLTable(){
+  const d=getSlice();
+  const head=document.getElementById('pl-head');
+  const body=document.getElementById('pl-body');
+  head.innerHTML='';body.innerHTML='';
+  if(currentBreak==='plant'){
+    document.getElementById('pl-title').textContent=`Plant P&L — ${horizon}m total (mEUR)`;
+    const h=document.createElement('tr');
+    h.innerHTML=`<th style="text-align:left;width:14%">Plant</th><th>Share</th><th>Rev ${horizon}m</th><th>CM ${horizon}m</th><th>CM%</th><th>Dec act (₹Cr)</th><th>Jan act (₹Cr)</th><th>Feb act (₹Cr)</th><th>Status</th>`;
+    head.appendChild(h);
+    const totalRev=d.reduce((s,x)=>s+x.rev,0);
+    const totalCM=d.reduce((s,x)=>s+x.cm,0);
+    Object.entries(PLANT_DATA).forEach(([k,pl])=>{
+      const rev=+(totalRev*pl.share).toFixed(2);
+      const cm=+(totalCM*pl.share).toFixed(2);
+      const cmP=(cm/rev*100).toFixed(1);
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${pl.color};margin-right:5px;vertical-align:middle"></span>${pl.name}</td>
+        <td>${(pl.share*100).toFixed(0)}%</td><td>${rev.toFixed(2)}</td><td>${cm.toFixed(2)}</td>
+        <td><span class="tag ${parseFloat(cmP)>=20?'tg':parseFloat(cmP)>=15?'ta':'tr'}">${cmP}%</span></td>
+        <td class="type-act">${pl.icp[0].toFixed(2)}</td><td class="type-act">${pl.icp[1].toFixed(2)}</td><td class="type-act">${pl.icp[2].toFixed(2)}</td>
+        <td><span class="tag tg">On plan</span></td>`;
+      body.appendChild(tr);
+    });
+    const tot=document.createElement('tr'); tot.className='tr-tot';
+    const tRev=d.reduce((s,x)=>s+x.rev,0); const tCM=d.reduce((s,x)=>s+x.cm,0);
+    tot.innerHTML=`<td>Total</td><td>100%</td><td>${tRev.toFixed(2)}</td><td>${tCM.toFixed(2)}</td><td><span class="tag ta">${(tCM/tRev*100).toFixed(1)}%</span></td><td>35.56</td><td>39.49</td><td>37.58</td><td><span class="tag tb">Summary</span></td>`;
+    body.appendChild(tot);
+    document.getElementById('pl-note').textContent='Actuals (₹Cr) from MPS Dec\'22 ICP summary. mEUR projected at ₹88/€.';
+  } else if(currentBreak==='customer'){
+    document.getElementById('pl-title').textContent=`Customer demand plan — ${horizon}m projection (mEUR)`;
+    const h=document.createElement('tr');
+    h.innerHTML=`<th style="text-align:left;width:18%">Customer</th><th>Vol share</th><th>Rev ${horizon}m</th><th>CM ${horizon}m</th><th>CM%</th><th>May'22 pcs</th><th>Status</th>`;
+    head.appendChild(h);
+    const totRev=d.reduce((s,x)=>s+x.rev,0); const totCM=d.reduce((s,x)=>s+x.cm,0);
+    const totPcs={TML:508201,MSIL:356230,TATA:255660,'M&M':182246,'RNAIPL/Nissan':175106,VW:115228,Ford:148292,FCA:68304,'MGI/Others':65000};
+    CUSTS.forEach(c=>{
+      const rev=+(totRev*c.share).toFixed(2); const cm=+(totCM*c.share).toFixed(2);
+      const cmP=(cm/rev*100).toFixed(1); const pcs=totPcs[c.name]||0;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${c.color};margin-right:5px;vertical-align:middle"></span>${c.name}</td>
+        <td>${(c.share*100).toFixed(0)}%</td><td>${rev.toFixed(2)}</td><td>${cm.toFixed(2)}</td>
+        <td><span class="tag ${parseFloat(cmP)>=20?'tg':parseFloat(cmP)>=15?'ta':'tr'}">${cmP}%</span></td>
+        <td>${pcs?pcs.toLocaleString():'—'}</td><td><span class="tag tg">Active</span></td>`;
+      body.appendChild(tr);
+    });
+    document.getElementById('pl-note').textContent='Pcs from SP sheets (May 2022 actuals). Revenue share from volume mix × avg selling price.';
+  } else {
+    document.getElementById('pl-title').textContent='Annual P&L summary — sealings division';
+    const h=document.createElement('tr');
+    h.innerHTML=`<th style="text-align:left;width:16%">Period</th><th>Months</th><th>Volume (Tn)</th><th>Revenue (mEUR)</th><th>CM (mEUR)</th><th>CM%</th><th>Avg €/Tn</th><th>Type</th>`;
+    head.appendChild(h);
+    const slices=[
+      {label:'Dec\'22 (actual)',data:modelData.slice(0,1)},
+      {label:'2023 (Jan–Dec)',data:modelData.slice(1,13)},
+      {label:'2024 H1 (Jan–Jun)',data:modelData.slice(13)},
+      {label:'18m total',data:modelData},
+    ];
+    slices.forEach((s,i)=>{
+      const vol=s.data.reduce((a,x)=>a+x.vol,0);
+      const rev=s.data.reduce((a,x)=>a+x.rev,0);
+      const cm=s.data.reduce((a,x)=>a+x.cm,0);
+      const cmP=(cm/rev*100).toFixed(1);
+      const price=Math.round(rev*1000/vol);
+      const tr=document.createElement('tr');
+      if(i===3)tr.className='tr-tot';
+      const typeTag=i===0?`<span class="tag tb">Actual</span>`:i===1?`<span class="tag tg">Forecast</span>`:i===2?`<span class="tag tp">Projection</span>`:`<span class="tag ta">Total</span>`;
+      tr.innerHTML=`<td>${s.label}</td><td>${s.data.length}</td><td>${vol.toLocaleString()}</td><td>${rev.toFixed(2)}</td><td>${cm.toFixed(2)}</td>
+        <td><span class="tag ${parseFloat(cmP)>=20?'tg':parseFloat(cmP)>=15?'ta':'tr'}">${cmP}%</span></td>
+        <td>€${price.toLocaleString()}</td><td>${typeTag}</td>`;
+      body.appendChild(tr);
+    });
+    document.getElementById('pl-note').textContent='Baseline anchored to MPS Dec\'22 ICP ₹35.56 Cr = 4.04 mEUR. Scenario sliders control growth and CM.';
+  }
+}
+function renderSKUTable(){
+  const body=document.getElementById('sku-body'); body.innerHTML='';
+  function lagPip(val){
+    const c=val<=-10?'#E24B4A':val>=10?'#EF9F27':'#639922';
+    const tc=val<=-10?'#A32D2D':val>=10?'#854F0B':'#3B6D11';
+    const h=Math.max(Math.min(Math.abs(val)/25*16,16),2);
+    return `<div class="lag-pip"><div style="height:18px;display:flex;align-items:flex-end;justify-content:center"><div style="width:12px;height:${h}px;background:${c};border-radius:2px 2px 0 0"></div></div><div style="font-size:9px;font-weight:500;color:${tc};line-height:1">${val>=0?'+':''}${val.toFixed(0)}%</div></div>`;
+  }
+  SKU_DATA.forEach(s=>{
+    const bc=s.bias<=-10?{t:'#A32D2D',f:'#E24B4A'}:s.bias>=10?{t:'#854F0B',f:'#EF9F27'}:{t:'#3B6D11',f:'#639922'};
+    const bw=Math.min(Math.abs(s.bias)/25*45,45).toFixed(1);
+    const mapeC=s.mape>15?'#A32D2D':s.mape>10?'#854F0B':'#3B6D11';
+    const tr=document.createElement('tr');
+    if(s.worst)tr.style.background='var(--color-background-secondary)';
+    tr.innerHTML=`
+      <td>${s.sku}${s.worst?'<span class="worst-flag"><i class="ti ti-alert-triangle" style="font-size:9px" aria-hidden="true"></i></span>':''}</td>
+      <td style="color:var(--color-text-secondary);font-size:10px">${s.desc}</td>
+      <td style="color:${mapeC};font-weight:500">${s.mape}%</td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-size:11px;font-weight:500;color:${bc.t};min-width:36px">${s.bias>=0?'+':''}${s.bias}%</span><div style="flex:1;position:relative;height:4px;background:var(--color-background-secondary);border-radius:2px;overflow:hidden;min-width:32px"><div style="position:absolute;top:0;left:${s.bias<0?'calc(50% - '+bw+'%)':'50%'};width:${bw}%;height:100%;background:${bc.f};border-radius:2px"></div></div></div></td>
+      <td><div style="display:flex;gap:5px;align-items:flex-end;justify-content:center">
+        <div style="text-align:center"><div style="font-size:9px;color:var(--color-text-tertiary);margin-bottom:1px">L3</div>${lagPip(s.lags[0])}</div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--color-text-tertiary);margin-bottom:1px">L2</div>${lagPip(s.lags[1])}</div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--color-text-tertiary);margin-bottom:1px">L1</div>${lagPip(s.lags[2])}</div>
+        <div style="width:0.5px;height:30px;background:var(--color-border-secondary);margin:0 2px"></div>
+        <div style="text-align:center"><div style="font-size:9px;color:#185FA5;margin-bottom:1px">Now</div>${lagPip(s.bias)}</div>
+      </div></td>
+      <td><span class="tag ${s.status}">${s.stl}</span></td>
+      <td style="font-size:10px;color:var(--color-text-secondary);line-height:1.3">${s.action}</td>`;
+    body.appendChild(tr);
+  });
+}
+function renderCustChart(){
+  if(charts.cust){charts.cust.destroy();}
+  const labels=CUSTS.map(c=>c.name);
+  const vals=CUSTS.map(c=>+(c.share*100).toFixed(1));
+  const colors=CUSTS.map(c=>c.color);
+  charts.cust=new Chart(document.getElementById('c-cust'),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:1,borderColor:'var(--color-background-primary)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed.toFixed(1)}%`}}},cutout:'55%'}});
+  const leg=document.getElementById('cust-legend');
+  leg.innerHTML=CUSTS.map(c=>`<span style="display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:2px;background:${c.color};display:inline-block"></span>${c.name} ${(c.share*100).toFixed(0)}%</span>`).join('');
+}
+
+function setH(h,el){horizon=h;document.querySelectorAll('.tab-r:first-child .tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');rebuild();}
+function setPlant(p,el){currentPlant=p;document.querySelectorAll('#plant-tabs .tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderKPIs();renderMainChart();renderPLTable();}
+function setView(v,el){currentView=v;document.querySelectorAll('#view-tabs .tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderMainChart();}
+function setBreak(b,el){currentBreak=b;el.closest('.tab-r').querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');renderPLTable();}
+
+function rebuild(){
+  const p=getP();
+  document.getElementById('lbl-g').textContent=(p.growth>=0?'+':'')+Math.round(p.growth*100)+'%';
+  document.getElementById('lbl-p').textContent=p.price.toLocaleString();
+  document.getElementById('lbl-e').textContent=(p.esc>=0?'+':'')+parseFloat((p.esc*100).toFixed(1))+'%';
+  document.getElementById('lbl-c').textContent=Math.round(p.cm*100)+'%';
+  document.getElementById('lbl-ci').textContent=(p.cmimp>=0?'+':'')+parseFloat((p.cmimp*100).toFixed(1))+'pp';
+  buildModel();renderKPIs();renderMainChart();renderPLTable();
+}
+
+const SCREENS={demand:'Demand planning — CR_Demand_Plan_Sealings',supply:'Supply & MPS — RM/WIP/FG Split',inventory:'Inventory management',review:'S&OP Summary & KPI Scorecard',ai:'AI assistant',overview:'Overview',workflow:'Workflow — S&OP Monthly Cycle',controltower:'Supply Chain Control Tower'};
+function goNav(id,el){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));
+  document.getElementById('scr-'+id).classList.add('active');
+  if(el && el.classList) el.classList.add('active');
+  document.getElementById('top-title').textContent=SCREENS[id]||id;
+}
+
+const aiA={
+  'tml':'TML (Tata Motors Ltd) is the largest customer — 27.1% of pcs volume, primarily from Bawal (508K pcs/month).',
+  'revenue':'18-month total revenue at base case: ~72 mEUR. Dec\'22 actual: 4.04 mEUR/month from MPS ICP ₹35.56 Cr at ₹88/€.',
+  'cm':'Contribution margin starts at 18% and improves +0.5pp/yr. Adjust the CM sliders to stress-test scenarios.',
+  'bias':'Worst bias SKUs: DE-4421 (−22% over-forecast) and FR-0912 (+17% under-forecast). Both need recalibration before next consensus cycle.',
+  'bawal':'Bawal is the largest plant at 57% share. ICP Dec\'22: ₹20.22 Cr. Inventory: RM ₹53.4 Cr, WIP ₹57.5 Cr, FG ₹61.6 Cr (₹172.6 Cr total, 19.8 days).',
+  'inventory':'India total inventory: RM ₹246.1 Cr, WIP ₹116.0 Cr, FG ₹65.4 Cr. Chennai is over target at 54.2 days due to Renault QA issue.',
+  'scorecard':'Scorecard summary: OTIF 100% for all customers. Inventory: BWL green, SBD amber, CNS red. Freight within targets. Savings ahead of plan.',
+  'workflow':'The S&OP cycle runs over ~6 days: Demand review (D-3), RCCP/Supply review (D-1), S&OP meeting (D0), MPS update (D+1), SC Management review (D+2).',
+};
+function askAI(){
+  const inp=document.getElementById('ai-inp');
+  const q=inp.value.trim(); if(!q)return;
+  const thread=document.getElementById('ai-thread');
+  thread.innerHTML+=`<div style="background:#E6F1FB;border-radius:var(--border-radius-lg);padding:8px 11px;margin-bottom:8px;font-size:12px;color:#0C447C;text-align:right">${q}</div>`;
+  inp.value='';
+  const k=q.toLowerCase();
+  let r='Analysing the S&OP plan… Dec\'22 baseline is ₹35.56 Cr ICP across 5 plants. Try asking about: TML, revenue, CM, bias, bawal, inventory, scorecard, or workflow.';
+  for(const [key,ans] of Object.entries(aiA)){if(k.includes(key)){r=ans;break;}}
+  setTimeout(()=>{
+    thread.innerHTML+=`<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:8px 11px;margin-bottom:8px;font-size:12px;line-height:1.5"><strong style="font-size:10px;color:var(--color-text-tertiary);display:block;margin-bottom:3px">S&OP Assistant</strong>${r}</div>`;
+    thread.scrollTop=thread.scrollHeight;
+  },400);
+  thread.scrollTop=999;
+}
+
+// ── INIT ──────────────────────────────────────────────
+buildModel();
+renderKPIs();
+renderMainChart();
+renderPLTable();
+renderSKUTable();
+renderCustChart();
+renderWorkflow();
+renderMPS();
+</script>

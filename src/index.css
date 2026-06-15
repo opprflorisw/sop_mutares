@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* ============================================================
+   MUTARES S&OP — Design tokens
+   Corporate navy/blue (Mutares) + clean card surfaces (CRM ref)
+   + semantic status colors (S&OP dashboard ref).
+   ============================================================ */
+@theme {
+  /* Brand — Mutares navy/blue */
+  --color-brand-50: #eef5fc;
+  --color-brand-100: #e6f1fb;
+  --color-brand-200: #c5ddf4;
+  --color-brand-300: #85b7eb;
+  --color-brand-400: #4f93d8;
+  --color-brand-500: #2e73b8;
+  --color-brand-600: #185fa5;
+  --color-brand-700: #134e86;
+  --color-brand-800: #0f3460;
+  --color-brand-900: #0c2747;
+
+  /* Neutrals */
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f8fa;
+  --color-surface-3: #eef0f3;
+  --color-line: #e7eaee;
+  --color-line-strong: #d6dbe1;
+  --color-ink: #1a1d21;
+  --color-ink-2: #5b6470;
+  --color-ink-3: #8a929e;
+
+  /* Status */
+  --color-good: #1d9e75;
+  --color-good-2: #3b9b3b;
+  --color-warn: #ef9f27;
+  --color-bad: #e24b4a;
+  --color-info: #185fa5;
+  --color-accent: #7f77dd;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* thin scrollbars to match the dense dashboard look */
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cdd3da;
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
