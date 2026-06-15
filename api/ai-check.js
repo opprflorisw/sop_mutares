@@ -18,27 +18,22 @@ export default async function handler(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const summary = body.summary || "";
 
-  const prompt = `You are a supply-chain data-quality assistant for a Sales & Operations Planning tool used by Mutares portfolio companies.
-From the automated data-check results below, write a short briefing for a non-technical operations manager.
+  const prompt = `You summarize automated data-quality check results for a non-technical operations manager using a Sales & Operations Planning tool. Reply with ONLY the briefing (no preamble, no notes about your instructions), following this format exactly:
 
-Begin your reply with this exact line and nothing before it:
-**Verdict:** <one sentence: is the data ready to plan, and the headline reason>
+**Verdict:** The data is ready to plan, with two minor data-quality items to tidy up.
 
-Then include these sections (omit a section if it has no items):
 ## What to fix first
-- one bullet per blocker (missing required file / invalid file), each stating the plain-language business impact.
+- A missing month of sales history would distort year-over-year accuracy — but no blockers here.
+
 ## Worth tightening
-- one bullet per warning (time pocket / gap / cross-file mismatch), each saying why it matters.
+- Sales history is missing March 2023, which weakens trend and seasonality reads for that period.
+
 ## Recommended next step
-- one or two concrete actions.
+- Upload the missing March 2023 sales rows, then re-run the check.
 
-Style rules:
-- Keep it brief and skimmable.
-- Use plain prose; do NOT annotate with word counts or meta commentary.
-- Do NOT put ** around plain numbers or dates.
-- Only discuss issues that appear in the results; do not invent any.
+Now write the briefing for these results. Only mention issues that appear below; if there are no blockers, say so and omit empty sections. Keep bullets short and concrete.
 
-DATA-CHECK RESULTS:
+RESULTS:
 ${summary}`;
 
   try {
