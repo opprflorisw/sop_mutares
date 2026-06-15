@@ -13,10 +13,11 @@ import { api } from "../convex/_generated/api.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-// read VITE_CONVEX_URL from .env.local
+// URL: CLI arg wins (e.g. prod), else VITE_CONVEX_URL from .env.local (dev)
 const env = readFileSync(join(root, ".env.local"), "utf8");
-const url = env.match(/VITE_CONVEX_URL=(.+)/)?.[1].trim();
-if (!url) throw new Error("VITE_CONVEX_URL not found in .env.local");
+const url = process.argv[2] || env.match(/VITE_CONVEX_URL=(.+)/)?.[1].trim();
+if (!url) throw new Error("Provide a Convex URL (arg) or set VITE_CONVEX_URL in .env.local");
+console.log(`Seeding ${url}`);
 
 const TIME_FIELDS = {
   sales_history: "date",

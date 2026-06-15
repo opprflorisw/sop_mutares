@@ -68,7 +68,37 @@ claude mcp add convex -- npx -y convex@latest mcp start
 
 Docs: https://docs.convex.dev/ai/convex-mcp-server
 
-## Deploy
+## Convex deployments (provisioned)
 
-- Front end → **Vercel** (Vite preset, `npm run build`, output `dist/`).
-- Backend → **Convex Cloud** (`npx convex deploy`).
+| Env | Name | URL |
+|---|---|---|
+| dev | `benevolent-lark-275` | https://benevolent-lark-275.eu-west-1.convex.cloud |
+| **prod** | `elated-sparrow-924` | https://elated-sparrow-924.eu-west-1.convex.cloud |
+
+Both are seeded (demo users + Sealings project). Re-seed any deployment with:
+
+```bash
+node scripts/seed-convex.mjs <convex-url>   # omit url to use dev from .env.local
+```
+
+Redeploy Convex functions to prod after backend changes: `npx convex deploy -y`.
+
+## Deploy to Vercel
+
+The frontend is a Vite SPA + `/api` serverless functions. It reads the **prod**
+Convex URL at build time (`VITE_CONVEX_URL`). One-time setup:
+
+```bash
+vercel login                 # interactive (browser) — only manual step
+vercel link --yes            # create/link the Vercel project
+
+# env vars (Production):
+printf 'https://elated-sparrow-924.eu-west-1.convex.cloud' | vercel env add VITE_CONVEX_URL production
+printf 'gemini-3.5-flash'                                  | vercel env add GEMINI_MODEL production
+printf '<your-gemini-key>'                                 | vercel env add GEMINI_API_KEY production
+
+vercel --prod                # build + deploy → live URL
+```
+
+On first load the app's SeedGate ensures the demo data exists in prod Convex.
+Pushing to GitHub auto-deploys once the Vercel↔GitHub integration is connected.
