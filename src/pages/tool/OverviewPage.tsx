@@ -39,9 +39,9 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiTile label="Revenue projection" value={fmtMoney(d.kpis.revenueProjection, d.currency)} delta="12m forecast" deltaKind="up" />
-        <KpiTile label="Forecast accuracy" value={`${d.kpis.forecastAccuracy}%`} delta={`bias ${d.kpis.forecastBias >= 0 ? "+" : ""}${d.kpis.forecastBias}%`} deltaKind={Math.abs(d.kpis.forecastBias) > 10 ? "warn" : "up"} />
-        <KpiTile label="Inventory days" value={`${d.kpis.inventoryDays} d`} delta="weighted avg" deltaKind={d.kpis.inventoryDays > 40 ? "warn" : "up"} />
-        <KpiTile label="Capacity util." value={`${d.kpis.capacityUtil}%`} delta={`${d.kpis.overloadedLines} line(s) over`} deltaKind={d.kpis.overloadedLines ? "warn" : "up"} />
+        <KpiTile label="Forecast accuracy" value={`${d.kpis.forecastAccuracy}%`} delta="target 85%" deltaKind={d.kpis.forecastAccuracy >= 85 ? "up" : d.kpis.forecastAccuracy >= 78 ? "warn" : "down"} />
+        <KpiTile label="Inventory days" value={`${d.kpis.inventoryDays} d`} delta={`target ${d.kpis.inventoryTarget} d`} deltaKind={d.kpis.inventoryDays > d.kpis.inventoryTarget ? "warn" : "up"} />
+        <KpiTile label="Capacity util." value={`${d.kpis.capacityUtil}%`} delta={d.kpis.overloadedLines ? `${d.kpis.overloadedLines} line(s) over` : "target <90%"} deltaKind={d.kpis.overloadedLines || d.kpis.capacityUtil > 90 ? "warn" : "up"} />
         <KpiTile label="Revenue at risk" value={fmtMoney(d.kpis.revenueAtRisk, d.currency)} delta="demand-supply gap" deltaKind="down" />
       </div>
 

@@ -103,6 +103,7 @@ export type ProjectData = {
     forecastAccuracy: number;
     forecastBias: number;
     inventoryDays: number;
+    inventoryTarget: number;
     capacityUtil: number;
     revenueAtRisk: number;
     overloadedLines: number;
@@ -116,7 +117,7 @@ export function computeProjectData(project: Project | null): ProjectData {
     families: [], capacityLines: [], plants: [], skuAccuracy: [],
     customerMix: [], demandSeries: [], capacitySchedule: { periods: [], rows: [] }, materialAlerts: [],
     issues: [],
-    kpis: { revenueProjection: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, capacityUtil: 0, revenueAtRisk: 0, overloadedLines: 0 },
+    kpis: { revenueProjection: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, capacityUtil: 0, revenueAtRisk: 0, overloadedLines: 0 },
   };
   if (!project) return empty;
 
@@ -330,6 +331,8 @@ export function computeProjectData(project: Project | null): ProjectData {
   const capacityUtil = totAvail ? Math.round((totReq / totAvail) * 100) : 0;
   const revenueAtRisk = familyData.reduce((s, f) => s + f.revenueAtRisk, 0);
   const overloadedLines = capacityLines.filter((l) => l.overload).length;
+  const invTargets = plantRows.map((r) => num(r.target_inv_days)).filter((x) => x > 0);
+  const inventoryTarget = invTargets.length ? Math.round(invTargets.reduce((a, b) => a + b, 0) / invTargets.length) : 40;
 
   // ---- Material / MRP alerts (supplier reliability + lead time × BOM) ----
   const bomRows = rowsOf(project, "bom");
@@ -379,7 +382,7 @@ export function computeProjectData(project: Project | null): ProjectData {
     capacitySchedule,
     materialAlerts,
     issues,
-    kpis: { revenueProjection, forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), capacityUtil, revenueAtRisk, overloadedLines },
+    kpis: { revenueProjection, forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, capacityUtil, revenueAtRisk, overloadedLines },
   };
 }
 
