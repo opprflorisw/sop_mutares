@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import LoginPage from "./pages/LoginPage";
 import WorkspaceLayout from "./components/WorkspaceLayout";
 import WorkspacePage from "./pages/WorkspacePage";
+import DataManagerPage from "./pages/DataManagerPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import ToolLayout from "./components/ToolLayout";
 import OverviewPage from "./pages/tool/OverviewPage";
@@ -33,6 +34,7 @@ export default function App() {
         }
       >
         <Route index element={<WorkspacePage />} />
+        <Route path="project/:id" element={<DataManagerPage />} />
         <Route path="accounts" element={<AccountManagementPage />} />
       </Route>
 

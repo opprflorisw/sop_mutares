@@ -1,0 +1,4 @@
+supplier,component,lead_time_days,reliability,moq
+SUP-204,RUB-EPDM-12,21,92,5000
+SUP-118,STL-CORE-7,28,88,8000
+SUP-330,COAT-PU,14,97,2000

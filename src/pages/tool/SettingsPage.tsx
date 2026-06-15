@@ -1,6 +1,9 @@
-import { useProjects } from "../../lib/projects";
+import { useProjects, activeVersion } from "../../lib/projects";
+import { getTemplate } from "../../lib/templates";
 import { Card, CardTitle, Tag, PlaceholderNote } from "../../components/ui";
 import { PageHeader } from "./OverviewPage";
+
+const STATUS_TONE = { valid: "good", warning: "warn", error: "bad" } as const;
 
 export default function SettingsPage() {
   const { activeProject } = useProjects();
@@ -31,14 +34,20 @@ export default function SettingsPage() {
               No files yet — add them from the Workspace.
             </span>
           )}
-          {activeProject.files.map((f) => (
-            <span key={f.templateId} className="flex items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2.5 py-1 text-[11.5px]">
-              {f.fileName}
-              <Tag tone={f.status === "valid" ? "good" : f.status === "pending" ? "warn" : "bad"}>
-                {f.rows.toLocaleString()} rows
-              </Tag>
-            </span>
-          ))}
+          {activeProject.files.map((f) => {
+            const v = activeVersion(f);
+            const title = getTemplate(f.templateId)?.title ?? f.templateId;
+            return (
+              <span key={f.templateId} className="flex items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2.5 py-1 text-[11.5px]">
+                {title}
+                {v && (
+                  <Tag tone={STATUS_TONE[v.status]}>
+                    {v.rows.toLocaleString()} rows
+                  </Tag>
+                )}
+              </span>
+            );
+          })}
         </div>
       </Card>
 

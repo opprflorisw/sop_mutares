@@ -1,28 +1,18 @@
 import { useRef, useState } from "react";
 import { IconSparkles, IconSend } from "./icons";
+import { aiChat } from "../lib/ai";
 
 // ============================================================
 // Persistent AI assistant — a drawer toggled from a floating
 // button, available across every module (the "chat-enabled
-// backend" from the team alignment). Phase 5 wires this to Claude
-// via Convex actions; for now it returns grounded demo answers.
+// backend" from the team alignment). Calls the Gemini-backed
+// serverless function when deployed; falls back locally otherwise.
 // ============================================================
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-const CANNED: Record<string, string> = {
-  gap: "Biggest demand-supply gap: Profile extrusions — 720k demand vs 540k supply (25% gap, €149k revenue at risk), constrained by Bawal Extrusion-2 capacity. GlassRun is also short due to the EPDM shortage.",
-  epdm: "EPDM-12 rubber is short from Wk 23, constraining GlassRun and Profile families — €122k at risk. Options: expedite from the alternate supplier, or pre-build Welt seals to free the line.",
-  capacity: "Bawal Extrusion-2 is overloaded at 111% (Nov–Dec). Closing it needs ~3,100 extra minutes — a Saturday shift or re-routing Profile volume to Sahibabad Extrusion-3 (currently 82%).",
-  bias: "Forecast bias is -4.8% (systematic over-forecast). Worst SKUs: DE-4421 (-22%) and FR-0912 (+17%). Recalibrate before the next consensus cycle.",
-  revenue: "12-month base-case revenue is ~72 mEUR. Revenue at risk this cycle is ~€361k, mostly from the Profile gap and the EPDM shortage.",
-};
-
-function answer(q: string): string {
-  const k = q.toLowerCase();
-  for (const [key, val] of Object.entries(CANNED)) if (k.includes(key)) return val;
-  return "In Phase 5 I'll answer this from your live project data (Claude over the Convex tables). Try: \"biggest gap\", \"EPDM shortage\", \"capacity overload\", \"forecast bias\", \"revenue at risk\".";
-}
+const CONTEXT =
+  "SFC India Sealings, Dec'22 cycle. 5 product families. Profile extrusions have a 25% demand-supply gap (~€149k at risk) constrained by Bawal Extrusion-2 (111% load, Nov–Dec). EPDM-12 rubber short from Wk 23 (~€122k at risk). Forecast bias -4.8%. 12m base revenue ~72 mEUR.";
 
 export default function AssistantDrawer() {
   const [open, setOpen] = useState(false);
@@ -33,13 +23,20 @@ export default function AssistantDrawer() {
     },
   ]);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  function send() {
+  async function send() {
     const q = input.trim();
-    if (!q) return;
-    setMessages((m) => [...m, { role: "user", text: q }, { role: "assistant", text: answer(q) }]);
+    if (!q || busy) return;
+    const next: Msg[] = [...messages, { role: "user", text: q }];
+    setMessages(next);
     setInput("");
+    setBusy(true);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    const { text } = await aiChat(next, CONTEXT);
+    setMessages((m) => [...m, { role: "assistant", text }]);
+    setBusy(false);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 

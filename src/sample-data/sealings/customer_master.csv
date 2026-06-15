@@ -1,0 +1,7 @@
+customer,region,channel,segment
+TML,North,OEM,Commercial
+MSIL,North,OEM,Passenger
+VW,West,OEM,Passenger
+TATA,West,OEM,Passenger
+M&M,South,OEM,Utility
+RNAIPL,South,OEM,Passenger

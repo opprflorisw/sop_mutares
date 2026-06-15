@@ -1,10 +1,11 @@
 // ============================================================
 // Canonical data templates — the "enforced format" contract.
-// Each template = fixed header + example row + field dictionary.
-// The File Explorer renders these and lets users download a .csv
-// starter. Later phases validate uploads against these schemas
-// (Zod) before anything is stored in a Project.
+// Each template = fixed header + example row + field dictionary +
+// a requirement level (required / recommended / optional) and,
+// for time-series files, the date field used to detect gaps.
 // ============================================================
+
+export type Requirement = "required" | "recommended" | "optional";
 
 export type TemplateField = {
   name: string;
@@ -19,9 +20,21 @@ export type DataTemplate = {
   file: string;
   title: string;
   module: "Master" | "Demand" | "Supply" | "Inventory";
+  requirement: Requirement;
+  timeSeries: boolean;
+  dateField?: string;
   description: string;
   fields: TemplateField[];
   example: Record<string, string | number>;
+};
+
+export const REQUIREMENT_META: Record<
+  Requirement,
+  { label: string; tone: "bad" | "warn" | "neutral"; blurb: string }
+> = {
+  required: { label: "Required", tone: "bad", blurb: "Core modules need this file." },
+  recommended: { label: "Recommended", tone: "warn", blurb: "Unlocks more analysis." },
+  optional: { label: "Optional", tone: "neutral", blurb: "Nice to have." },
 };
 
 export const TEMPLATES: DataTemplate[] = [
@@ -30,23 +43,27 @@ export const TEMPLATES: DataTemplate[] = [
     file: "sku_master.csv",
     title: "SKU Master",
     module: "Master",
+    requirement: "required",
+    timeSeries: false,
     description: "The product catalogue every other file references.",
     fields: [
       { name: "sku", type: "string", required: true, description: "Unique SKU / part number" },
       { name: "description", type: "string", required: true, description: "Human-readable description" },
-      { name: "family", type: "string", required: true, description: "Product family / group" },
+      { name: "family", type: "string", required: true, description: "Product family / group (S&OP plans here)" },
       { name: "uom", type: "string", required: true, description: "Unit of measure (e.g. pcs, Tn)" },
       { name: "plant", type: "string", required: true, description: "Primary plant code" },
       { name: "std_cost", type: "number", required: true, description: "Standard unit cost" },
       { name: "price", type: "number", required: true, description: "List / selling price per unit" },
     ],
-    example: { sku: "AL-1024", description: "Welt Bodyside FrRH", family: "Welt", uom: "pcs", plant: "BWL", std_cost: 38.5, price: 52.0 },
+    example: { sku: "AL-1024", description: "Welt Bodyside FrRH", family: "Welt seals", uom: "pcs", plant: "BWL", std_cost: 38.5, price: 52.0 },
   },
   {
     id: "customer_master",
     file: "customer_master.csv",
     title: "Customer Master",
     module: "Master",
+    requirement: "recommended",
+    timeSeries: false,
     description: "Customers used for demand mix and OTIF.",
     fields: [
       { name: "customer", type: "string", required: true, description: "Customer code / name" },
@@ -61,6 +78,8 @@ export const TEMPLATES: DataTemplate[] = [
     file: "plant_master.csv",
     title: "Plant Master",
     module: "Master",
+    requirement: "recommended",
+    timeSeries: false,
     description: "Plants/sites with capacity and inventory targets.",
     fields: [
       { name: "plant", type: "string", required: true, description: "Plant code" },
@@ -76,6 +95,9 @@ export const TEMPLATES: DataTemplate[] = [
     file: "sales_history.csv",
     title: "Sales History (Actuals)",
     module: "Demand",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "date",
     description: "Historical actual demand — drives forecast accuracy.",
     fields: [
       { name: "date", type: "date", required: true, description: "Period (YYYY-MM-DD, first of month)" },
@@ -92,6 +114,9 @@ export const TEMPLATES: DataTemplate[] = [
     file: "demand_forecast.csv",
     title: "Demand Forecast (Baseline)",
     module: "Demand",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "date",
     description: "Statistical / baseline forecast before consensus overrides.",
     fields: [
       { name: "date", type: "date", required: true, description: "Future period (YYYY-MM-DD)" },
@@ -107,6 +132,8 @@ export const TEMPLATES: DataTemplate[] = [
     file: "bom.csv",
     title: "Bill of Materials",
     module: "Supply",
+    requirement: "recommended",
+    timeSeries: false,
     description: "Component structure for MPS, pegging and supplier risk.",
     fields: [
       { name: "parent_sku", type: "string", required: true, description: "Finished good SKU" },
@@ -123,6 +150,9 @@ export const TEMPLATES: DataTemplate[] = [
     file: "inventory.csv",
     title: "Inventory Snapshot",
     module: "Inventory",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "date",
     description: "RM / WIP / FG stock by plant — control-tower fuel.",
     fields: [
       { name: "date", type: "date", required: true, description: "Snapshot period (YYYY-MM-DD)" },
@@ -139,6 +169,9 @@ export const TEMPLATES: DataTemplate[] = [
     file: "capacity.csv",
     title: "Capacity (RCCP)",
     module: "Supply",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "date",
     description: "Available vs required minutes per resource for RCCP.",
     fields: [
       { name: "date", type: "date", required: true, description: "Period (YYYY-MM-DD)" },
@@ -154,6 +187,8 @@ export const TEMPLATES: DataTemplate[] = [
     file: "supplier.csv",
     title: "Supplier Master",
     module: "Supply",
+    requirement: "optional",
+    timeSeries: false,
     description: "Supplier lead-time & reliability for risk analysis.",
     fields: [
       { name: "supplier", type: "string", required: true, description: "Supplier code" },
@@ -166,7 +201,11 @@ export const TEMPLATES: DataTemplate[] = [
   },
 ];
 
-/** Build a downloadable CSV string for a template (header + example row). */
+export function getTemplate(id: string): DataTemplate | undefined {
+  return TEMPLATES.find((t) => t.id === id);
+}
+
+/** Build a downloadable blank CSV for a template (header + example row). */
 export function templateToCsv(t: DataTemplate): string {
   const header = t.fields.map((f) => f.name).join(",");
   const exampleRow = t.fields
@@ -176,4 +215,22 @@ export function templateToCsv(t: DataTemplate): string {
     })
     .join(",");
   return `${header}\n${exampleRow}\n`;
+}
+
+/**
+ * "Mix & match" — given a CSV's header row, find the template whose
+ * required columns it best matches. Returns the best match + a 0-1 score.
+ */
+export function detectTemplate(
+  headers: string[]
+): { template: DataTemplate; score: number } | null {
+  const norm = headers.map((h) => h.trim().toLowerCase());
+  let best: { template: DataTemplate; score: number } | null = null;
+  for (const t of TEMPLATES) {
+    const cols = t.fields.map((f) => f.name.toLowerCase());
+    const hits = cols.filter((c) => norm.includes(c)).length;
+    const score = hits / cols.length;
+    if (!best || score > best.score) best = { template: t, score };
+  }
+  return best && best.score >= 0.5 ? best : null;
 }
