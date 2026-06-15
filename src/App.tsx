@@ -8,13 +8,9 @@ import WorkspacePage from "./pages/WorkspacePage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import ToolLayout from "./components/ToolLayout";
 import OverviewPage from "./pages/tool/OverviewPage";
-import WorkflowPage from "./pages/tool/WorkflowPage";
 import DemandPage from "./pages/tool/DemandPage";
 import SupplyPage from "./pages/tool/SupplyPage";
-import InventoryPage from "./pages/tool/InventoryPage";
-import SummaryPage from "./pages/tool/SummaryPage";
-import ControlTowerPage from "./pages/tool/ControlTowerPage";
-import AssistantPage from "./pages/tool/AssistantPage";
+import CapacityPage from "./pages/tool/CapacityPage";
 import SettingsPage from "./pages/tool/SettingsPage";
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -50,14 +46,16 @@ export default function App() {
       >
         <Route index element={<Navigate to="/tool/overview" replace />} />
         <Route path="overview" element={<OverviewPage />} />
-        <Route path="workflow" element={<WorkflowPage />} />
         <Route path="demand" element={<DemandPage />} />
         <Route path="supply" element={<SupplyPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="summary" element={<SummaryPage />} />
-        <Route path="control-tower" element={<ControlTowerPage />} />
-        <Route path="assistant" element={<AssistantPage />} />
+        <Route path="capacity" element={<CapacityPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        {/* legacy routes folded into the 3 core modules */}
+        <Route path="workflow" element={<Navigate to="/tool/overview" replace />} />
+        <Route path="inventory" element={<Navigate to="/tool/supply" replace />} />
+        <Route path="summary" element={<Navigate to="/tool/overview" replace />} />
+        <Route path="control-tower" element={<Navigate to="/tool/overview" replace />} />
+        <Route path="assistant" element={<Navigate to="/tool/overview" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/workspace" replace />} />

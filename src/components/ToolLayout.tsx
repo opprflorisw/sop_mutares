@@ -1,15 +1,12 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useProjects } from "../lib/projects";
 import { useAuth } from "../lib/auth";
+import AssistantDrawer from "./AssistantDrawer";
 import {
   IconDashboard,
-  IconFlow,
   IconChart,
   IconFactory,
   IconBox,
-  IconChecks,
-  IconRadar,
-  IconSparkles,
   IconSettings,
   IconArrowLeft,
   IconLogout,
@@ -23,18 +20,13 @@ type NavItem = {
   badge?: number;
 };
 
-const PLANNING: NavItem[] = [
+// Four essential, actionable buttons (team decision): an executive
+// snapshot + the three core modules — Demand, Supply, Capacity.
+const NAV: NavItem[] = [
   { to: "/tool/overview", label: "Overview", icon: IconDashboard },
-  { to: "/tool/workflow", label: "Workflow", icon: IconFlow },
   { to: "/tool/demand", label: "Demand", icon: IconChart },
-  { to: "/tool/supply", label: "Supply & MPS", icon: IconFactory },
-  { to: "/tool/inventory", label: "Inventory", icon: IconBox, badge: 2 },
-];
-
-const REVIEW: NavItem[] = [
-  { to: "/tool/summary", label: "S&OP Summary", icon: IconChecks },
-  { to: "/tool/control-tower", label: "Control Tower", icon: IconRadar },
-  { to: "/tool/assistant", label: "AI Assistant", icon: IconSparkles },
+  { to: "/tool/supply", label: "Supply", icon: IconFactory },
+  { to: "/tool/capacity", label: "Capacity", icon: IconBox },
 ];
 
 function NavRow({ item }: { item: NavItem }) {
@@ -92,12 +84,10 @@ export default function ToolLayout() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
-          <SectionLabel>Planning</SectionLabel>
-          {PLANNING.map((i) => (
-            <NavRow key={i.to} item={i} />
-          ))}
-          <SectionLabel>Review</SectionLabel>
-          {REVIEW.map((i) => (
+          <div className="px-3.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-ink-3)]">
+            Planning
+          </div>
+          {NAV.map((i) => (
             <NavRow key={i.to} item={i} />
           ))}
         </nav>
@@ -154,14 +144,8 @@ export default function ToolLayout() {
           <Outlet />
         </main>
       </div>
-    </div>
-  );
-}
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-3.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-ink-3)]">
-      {children}
+      <AssistantDrawer />
     </div>
   );
 }

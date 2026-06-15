@@ -8,6 +8,29 @@
 
 ---
 
+## 0. Revised scope — 2026-06-15 team alignment (SOP + AI)
+
+After reviewing the team meeting notes (`background/`) and the `SOP_Process_Reference.md`,
+the plan is refined:
+
+- **Purpose:** an **AI-enabled S&OP mockup for the Mutares COO to pitch portfolio-company
+  CEOs** — win executive buy-in first. The differentiators vs. throwaway AI prototypes are
+  a **persistent backend, user login, and file management** (all in place).
+- **Scope restricted to THREE core modules — Demand, Supply, Capacity** (no extraneous
+  dashboards). In-tool nav trimmed to **4 buttons**: **Overview (Exec S&OP), Demand,
+  Supply, Capacity**. The **AI assistant is a persistent chat drawer**, not a tab.
+  Workflow / Inventory / Summary / Control-Tower content folded into those four.
+- **"Not just fancy but explainable"** for non-experts — keep it simple and impactful.
+- **Build outputs + rigid templates first** (backwards approach); ~5 key monthly KPIs.
+- **Core S&OP principles baked in** (from the process reference): plan at **product-family**
+  level; store **unconstrained demand AND constrained supply — the GAP drives decisions**;
+  carry **units AND value** everywhere; Capacity (RCCP/overload) as its own module.
+
+Sections below are the original detail; where they say "8 modules" read the 4-button
+structure above.
+
+---
+
 ## 1. Product vision & positioning
 
 - **MVP for sale:** beautiful, simple front end; serious planning logic underneath.

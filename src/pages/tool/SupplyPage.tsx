@@ -10,96 +10,127 @@ import {
 } from "recharts";
 import { Card, CardTitle, KpiTile, Tag, PlaceholderNote } from "../../components/ui";
 import { PageHeader } from "./OverviewPage";
-import { PLANTS } from "../../lib/sealings";
+import { FAMILIES, familyMetrics, MRP_ALERTS, PLANTS } from "../../lib/sealings";
 
 const withInv = PLANTS.filter((p) => p.invTotal !== null);
+const totalRisk = FAMILIES.reduce((s, f) => s + familyMetrics(f).revenueAtRisk, 0);
+const totalDemand = FAMILIES.reduce((s, f) => s + familyMetrics(f).demandValue, 0);
+const totalSupply = FAMILIES.reduce((s, f) => s + familyMetrics(f).supplyValue, 0);
+const SEV = { critical: "bad", high: "warn", medium: "info" } as const;
 
 export default function SupplyPage() {
   return (
     <div className="space-y-4">
-      <PageHeader title="Supply & MPS" subtitle="RM / WIP / FG split · RCCP capacity" />
+      <PageHeader title="Supply" subtitle="Constrained plan · the demand-supply gap · MRP · inventory" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile label="Total ICP Dec'22" value="₹35.6 Cr" hint="≈ 4.04 mEUR" />
-        <KpiTile label="Total prod plan" value="₹34.8 Cr" delta="-2.1% vs ICP" deltaKind="down" />
-        <KpiTile label="FG closing stock" value="₹11.9 Cr" deltaKind="warn" delta="Dec'22" />
-        <KpiTile label="Total SKUs" value="801" hint="5 plants" />
+        <KpiTile label="Demand (unconstr.)" value={`${totalDemand.toFixed(1)} mEUR`} hint="What the market wants" />
+        <KpiTile label="Supply (constrained)" value={`${totalSupply.toFixed(1)} mEUR`} delta={`-${(totalDemand - totalSupply).toFixed(1)} mEUR vs demand`} deltaKind="down" />
+        <KpiTile label="Revenue at risk" value={`€${Math.round(totalRisk)}k`} delta="Unmet demand" deltaKind="down" />
+        <KpiTile label="Projected OTIF" value="96%" delta="Target 100%" deltaKind="warn" />
       </div>
 
+      {/* The gap — the central S&OP output */}
       <Card>
-        <CardTitle>MPS inventory split — RM / WIP / FG by plant (₹ Cr)</CardTitle>
-        <div className="h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={withInv} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#8a929e" }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "#8a929e" }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="rm" name="Raw Material" stackId="a" fill="#185FA5" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="wip" name="Work in Progress" stackId="a" fill="#EF9F27" />
-              <Bar dataKey="fg" name="Finished Goods" stackId="a" fill="#3B9B3B" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <table className="mt-2 w-full text-[12px]">
+        <CardTitle right={<Tag tone="info">the gap drives the decision</Tag>}>
+          Demand vs supply gap — by product family
+        </CardTitle>
+        <table className="w-full text-[12px]">
           <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
             <tr>
-              <th className="py-1.5 font-medium">Plant</th>
-              <th className="py-1.5 text-right font-medium">Total</th>
-              <th className="py-1.5 text-right font-medium">RM</th>
-              <th className="py-1.5 text-right font-medium">WIP</th>
-              <th className="py-1.5 text-right font-medium">FG</th>
-              <th className="py-1.5 text-right font-medium">Days</th>
+              <th className="py-1.5 font-medium">Family</th>
+              <th className="py-1.5 text-right font-medium">Demand (000s)</th>
+              <th className="py-1.5 text-right font-medium">Supply (000s)</th>
+              <th className="py-1.5 text-right font-medium">Gap</th>
+              <th className="py-1.5 text-right font-medium">Gap %</th>
+              <th className="py-1.5 text-right font-medium">€ at risk</th>
               <th className="py-1.5 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
-            {withInv.map((p) => {
-              const days = p.invDays!;
-              const tone = days > 40 ? "bad" : days > 35 ? "warn" : "good";
-              const label = days > 40 ? "Over target" : days > 35 ? "Watch" : "On target";
+            {FAMILIES.map((f) => {
+              const m = familyMetrics(f);
+              const constrained = m.gapUnits > 0;
               return (
-                <tr key={p.code} className="border-t border-[var(--color-line)]">
-                  <td className="py-1.5 font-medium">{p.name}</td>
-                  <td className="py-1.5 text-right">{p.invTotal!.toFixed(1)}</td>
-                  <td className="py-1.5 text-right text-[#185FA5]">{p.rm!.toFixed(1)}</td>
-                  <td className="py-1.5 text-right text-[#EF9F27]">{p.wip!.toFixed(1)}</td>
-                  <td className="py-1.5 text-right text-[#3B9B3B]">{p.fg!.toFixed(1)}</td>
-                  <td className="py-1.5 text-right font-medium">{days.toFixed(1)}</td>
-                  <td className="py-1.5"><Tag tone={tone}>{label}</Tag></td>
+                <tr key={f.family} className="border-t border-[var(--color-line)]">
+                  <td className="py-1.5 font-medium">
+                    <span className="mr-1.5 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: f.color }} />
+                    {f.family}
+                  </td>
+                  <td className="py-1.5 text-right">{f.unconstrained.toLocaleString()}</td>
+                  <td className="py-1.5 text-right">{f.constrained.toLocaleString()}</td>
+                  <td className={`py-1.5 text-right font-medium ${constrained ? "text-[var(--color-bad)]" : "text-[var(--color-good-2)]"}`}>
+                    {m.gapUnits > 0 ? `-${m.gapUnits.toLocaleString()}` : "0"}
+                  </td>
+                  <td className={`py-1.5 text-right ${constrained ? "text-[var(--color-bad)]" : "text-[var(--color-ink-3)]"}`}>
+                    {m.gapPct > 0 ? `${m.gapPct.toFixed(0)}%` : "—"}
+                  </td>
+                  <td className="py-1.5 text-right">{m.revenueAtRisk > 0 ? `€${Math.round(m.revenueAtRisk)}k` : "—"}</td>
+                  <td className="py-1.5">
+                    <Tag tone={constrained ? "bad" : "good"}>
+                      {constrained ? "Constrained" : "Met"}
+                    </Tag>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">Target = 40 days. RM includes goods-in-transit.</p>
       </Card>
 
-      <Card>
-        <CardTitle>RCCP — capacity utilisation by plant</CardTitle>
-        <div className="space-y-2.5">
-          {PLANTS.filter((p) => p.utilisation > 0).map((p) => {
-            const tone = p.utilisation >= 90 ? "good" : p.utilisation >= 85 ? "warn" : "good";
-            return (
-              <div key={p.code} className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-[12px]">{p.name}</span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
-                  <div className="h-full rounded-full" style={{ width: `${p.utilisation}%`, background: p.color }} />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
+        {/* MRP */}
+        <Card pad={false}>
+          <div className="border-b border-[var(--color-line)] px-4 py-3 text-[13px] font-semibold">
+            MRP — material shortages
+          </div>
+          <div className="divide-y divide-[var(--color-line)]">
+            {MRP_ALERTS.map((a) => (
+              <div key={a.material} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-semibold">
+                    {a.material} · {a.week}
+                  </span>
+                  <Tag tone={SEV[a.severity]}>€{a.valueAtRisk}k</Tag>
                 </div>
-                <span className="w-10 text-right text-[12px] font-semibold" style={{ color: p.color }}>
-                  {p.utilisation}%
-                </span>
-                <Tag tone={tone}>{p.utilisation >= 85 && p.utilisation < 90 ? "Watch" : "Good"}</Tag>
+                <div className="text-[11px] text-[var(--color-ink-2)]">{a.desc}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-ink-3)]">Affects: {a.affects}</div>
               </div>
-            );
-          })}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+
+        {/* Inventory */}
+        <Card>
+          <CardTitle>Inventory — RM / WIP / FG by plant (₹ Cr)</CardTitle>
+          <div className="h-[150px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={withInv} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                <Bar dataKey="rm" name="RM" stackId="a" fill="#185FA5" />
+                <Bar dataKey="wip" name="WIP" stackId="a" fill="#EF9F27" />
+                <Bar dataKey="fg" name="FG" stackId="a" fill="#3B9B3B" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--color-ink-2)]">
+            {withInv.map((p) => (
+              <span key={p.code}>
+                {p.name}: <strong>{p.invDays!.toFixed(1)}d</strong>
+                {p.invDays! > 40 && <span className="text-[var(--color-bad)]"> ⚠</span>}
+              </span>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       <PlaceholderNote phase="Phase 3">
-        Constrained vs unconstrained planning, capacity-overload solver
-        (Saturday / 3rd-shift scenarios with cost-per-minute) and BOM pegging.
+        Gap-closing options costed side by side (overtime, alternate sourcing,
+        pre-build, re-timing), full MRP explosion and safety-stock targets.
       </PlaceholderNote>
     </div>
   );

@@ -67,6 +67,87 @@ export const WORKFLOW = [
   { num: "Step 6", title: "SC Mgmt Review", sub: "Day +2", owner: "SC Director" },
 ];
 
+// ============================================================
+// S&OP plans at PRODUCT-FAMILY level (aggregate), with the core
+// principle: store BOTH the unconstrained demand and the
+// constrained supply — the GAP between them drives decisions.
+// Every line carries units AND value (volume × price).
+// ============================================================
+export type FamilyPlan = {
+  family: string;
+  unconstrained: number; // demand units (000s)
+  constrained: number; // supply units (000s) — capped by capacity/material
+  price: number; // € per unit
+  color: string;
+};
+
+export const FAMILIES: FamilyPlan[] = [
+  { family: "Welt seals", unconstrained: 1240, constrained: 1240, price: 0.52, color: "#185FA5" },
+  { family: "GlassRun channels", unconstrained: 980, constrained: 815, price: 0.74, color: "#1D9E75" },
+  { family: "Dog-leg seals", unconstrained: 610, constrained: 610, price: 0.61, color: "#EF9F27" },
+  { family: "Profile extrusions", unconstrained: 720, constrained: 540, price: 0.83, color: "#7F77DD" },
+  { family: "Body-side mouldings", unconstrained: 430, constrained: 430, price: 0.48, color: "#D85A30" },
+];
+
+export function familyMetrics(f: FamilyPlan) {
+  const gapUnits = f.unconstrained - f.constrained;
+  return {
+    gapUnits,
+    gapPct: f.unconstrained ? (gapUnits / f.unconstrained) * 100 : 0,
+    demandValue: (f.unconstrained * f.price) / 1000, // mEUR (units in 000s)
+    supplyValue: (f.constrained * f.price) / 1000,
+    revenueAtRisk: (gapUnits * f.price) / 1000,
+  };
+}
+
+// Capacity (RCCP) — by line, with overload flagged where required > available.
+export type CapacityLine = {
+  plant: string;
+  line: string;
+  availableMin: number;
+  requiredMin: number;
+  color: string;
+};
+
+export const CAPACITY_LINES: CapacityLine[] = [
+  { plant: "Bawal", line: "Extrusion-1", availableMin: 28800, requiredMin: 27100, color: "#185FA5" },
+  { plant: "Bawal", line: "Extrusion-2", availableMin: 28800, requiredMin: 31900, color: "#185FA5" }, // overloaded
+  { plant: "Chennai", line: "Moulding-1", availableMin: 21600, requiredMin: 19000, color: "#EF9F27" },
+  { plant: "Sanand", line: "Assembly-1", availableMin: 25200, requiredMin: 19100, color: "#7F77DD" },
+  { plant: "Sahibabad", line: "Extrusion-3", availableMin: 18000, requiredMin: 14800, color: "#D85A30" },
+];
+
+// MRP — material shortages that constrain the supply plan.
+export type MrpAlert = {
+  material: string;
+  desc: string;
+  severity: "critical" | "high" | "medium";
+  week: string;
+  affects: string;
+  valueAtRisk: number; // kEUR
+};
+
+export const MRP_ALERTS: MrpAlert[] = [
+  { material: "EPDM-12", desc: "EPDM rubber compound shortage", severity: "critical", week: "Wk 23", affects: "GlassRun, Profile families", valueAtRisk: 122 },
+  { material: "STL-CORE-7", desc: "Steel carrier strip — Shenzhen supplier delay", severity: "high", week: "Wk 24", affects: "GlassRun channels", valueAtRisk: 56 },
+  { material: "COAT-PU", desc: "PU coating — premium freight to recover", severity: "medium", week: "Wk 22", affects: "Welt seals", valueAtRisk: 18 },
+];
+
+// Exec issue feed (Control-Tower style) for the Overview snapshot.
+export type Issue = {
+  severity: "critical" | "high" | "medium";
+  title: string;
+  detail: string;
+  valueAtRisk: number; // kEUR
+};
+
+export const ISSUE_FEED: Issue[] = [
+  { severity: "critical", title: "EPDM shortage — Wk 23", detail: "Constrains GlassRun & Profile supply. 165k units at risk.", valueAtRisk: 122 },
+  { severity: "critical", title: "Bawal Extrusion-2 overloaded", detail: "111% load Nov–Dec. Needs overtime or re-route.", valueAtRisk: 90 },
+  { severity: "high", title: "Profile extrusions gap 25%", detail: "Demand 720k vs supply 540k. Capacity-constrained.", valueAtRisk: 149 },
+  { severity: "medium", title: "Forecast bias -4.8%", detail: "Systematic over-forecast. Recalibrate before consensus.", valueAtRisk: 0 },
+];
+
 export const HEADLINE_KPIS = {
   icpTotalCr: 35.6,
   forecastAccuracy: 84,

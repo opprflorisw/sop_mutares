@@ -35,7 +35,7 @@ export default function DemandPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Demand planning" subtitle="CR_Demand_Plan_Sealings · 12-month horizon" />
+      <PageHeader title="Demand" subtitle="Unconstrained consensus forecast · revenue projection · bias & variation" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile label="12m revenue" value={`${totalRev.toFixed(1)} mEUR`} delta={`${growth >= 0 ? "+" : ""}${growth}% growth`} deltaKind={growth >= 0 ? "up" : "down"} />
