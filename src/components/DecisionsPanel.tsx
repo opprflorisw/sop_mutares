@@ -31,13 +31,24 @@ export default function DecisionsPanel({ projectId }: { projectId: string }) {
     setTitle(""); setOwner(""); setDue(""); setAdding(false);
   }
 
-  const open = (decisions ?? []).filter((d) => d.status !== "done").length;
+  const all = decisions ?? [];
+  const open = all.filter((d) => d.status !== "done").length;
+  const done = all.filter((d) => d.status === "done").length;
+  const completion = all.length ? Math.round((done / all.length) * 100) : 0;
 
   return (
     <Card pad={false}>
-      <div className="flex items-center gap-2 border-b border-[var(--color-line)] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-4 py-3">
         <span className="text-[13px] font-semibold">Decisions & actions</span>
         <Tag tone={open ? "warn" : "good"}>{open} open</Tag>
+        {all.length > 0 && (
+          <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-2)]">
+            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+              <span className="block h-full rounded-full bg-[var(--color-good-2)]" style={{ width: `${completion}%` }} />
+            </span>
+            {completion}% complete
+          </span>
+        )}
         <Button className="ml-auto" onClick={() => setAdding((a) => !a)}><IconPlus size={13} /> Add</Button>
       </div>
 

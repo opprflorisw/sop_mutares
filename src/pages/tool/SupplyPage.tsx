@@ -23,7 +23,7 @@ export default function SupplyPage() {
         <KpiTile label="Demand (unconstr.)" value={fmtMoney(totalDemand, d.currency)} hint="What the market wants" />
         <KpiTile label="Supply (constrained)" value={fmtMoney(totalSupply, d.currency)} delta={`-${fmtMoney(totalDemand - totalSupply, d.currency)} vs demand`} deltaKind={totalDemand - totalSupply > 0 ? "down" : "up"} />
         <KpiTile label="Revenue at risk" value={fmtMoney(d.kpis.revenueAtRisk, d.currency)} delta="unmet demand" deltaKind="down" />
-        <KpiTile label="Material alerts" value={`${d.materialAlerts.length}`} delta={d.materialAlerts.some((a) => a.severity === "critical") ? "1+ critical" : "monitor"} deltaKind={d.materialAlerts.length ? "warn" : "up"} />
+        <KpiTile label="Inventory turns" value={`${d.kpis.inventoryTurns}×`} delta={`${d.kpis.inventoryDays}d on hand`} deltaKind={d.kpis.inventoryTurns >= 9 ? "up" : "warn"} />
       </div>
 
       <Card>
