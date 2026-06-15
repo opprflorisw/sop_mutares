@@ -9,21 +9,35 @@ import type { Project } from "./projects";
 // ============================================================
 
 export type WidgetKey =
-  | "kpis" | "trend" | "gap" | "inventory" | "capacity" | "issues" | "decisions" | "accuracy" | "customers";
+  | "kpis" | "invproj" | "inventory" | "trend" | "bridge" | "customers"
+  | "accuracy" | "issues" | "vulops" | "decisions" | "gap" | "capacity" | "slob";
 
+// Ordered to mirror the real Mutares S&OP review-pack agenda:
+// 1 Inventory · 2 Demand & revenue outlook · 3 Forecast accuracy & BIAS
+// · 4 Key attention points · 5 RCCP / supply.
 export const WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "kpis", label: "Executive KPIs" },
-  { key: "trend", label: "Revenue trend" },
-  { key: "gap", label: "Demand vs Supply gap" },
+  { key: "invproj", label: "Inventory projection" },
   { key: "inventory", label: "Inventory by plant" },
-  { key: "capacity", label: "Capacity & overload" },
-  { key: "issues", label: "Open issues" },
-  { key: "decisions", label: "Decisions & actions" },
-  { key: "accuracy", label: "Forecast accuracy (SKU)" },
+  { key: "trend", label: "Demand & revenue outlook" },
+  { key: "bridge", label: "Plan bridge (baseline → committed)" },
   { key: "customers", label: "Customer demand mix" },
+  { key: "accuracy", label: "Forecast accuracy & BIAS (SKU)" },
+  { key: "issues", label: "Key attention points (issues)" },
+  { key: "vulops", label: "Vulnerabilities & Opportunities" },
+  { key: "decisions", label: "Decisions & actions" },
+  { key: "gap", label: "Demand vs Supply gap (RCCP)" },
+  { key: "capacity", label: "Capacity & overload" },
+  { key: "slob", label: "Slow-moving & obsolete (SLOB)" },
+];
+
+// The 5-part agenda preset — the exact pack leadership reviews monthly.
+export const AGENDA_PRESET: WidgetKey[] = [
+  "kpis", "invproj", "inventory", "trend", "accuracy", "issues", "vulops", "decisions", "gap", "capacity",
 ];
 
 export type ReportDecision = { title: string; owner: string; status: string; due: string };
+export type ReportVulOp = { kind: string; title: string; impact: number; likelihood: string; owner: string; status: string };
 
 export type ReportConfig = {
   companyName: string;
@@ -47,25 +61,53 @@ export function buildReportHtml(
   d: ProjectData,
   cfg: ReportConfig,
   generatedDate: string,
-  decisions: ReportDecision[] = []
+  decisions: ReportDecision[] = [],
+  vulops: ReportVulOp[] = []
 ): string {
   const c = d.currency;
   const W = cfg.widgets;
-  const sections: string[] = [];
+  const parts: Partial<Record<WidgetKey, string>> = {};
 
   if (W.kpis) {
     const k = d.kpis;
     const tiles = [
       ["Revenue projection (12m)", fmtMoney(k.revenueProjection, c)],
-      ["Forecast accuracy", `${k.forecastAccuracy}%`],
-      ["Forecast bias", `${k.forecastBias >= 0 ? "+" : ""}${k.forecastBias}%`],
-      ["Inventory days", `${k.inventoryDays} d`],
-      ["Capacity utilisation", `${k.capacityUtil}%`],
+      ["Contribution margin", `${fmtMoney(k.contributionMargin, c)} · ${k.cmPct}%`],
+      ["Forecast accuracy / bias", `${k.forecastAccuracy}% · ${k.forecastBias >= 0 ? "+" : ""}${k.forecastBias}%`],
+      ["Inventory days", `${k.inventoryDays} d (tgt ${k.inventoryTarget})`],
+      ["Capacity utilisation", `${k.capacityUtil}% / ${k.plannedCapacityUtil}% planned`],
       ["Revenue at risk", fmtMoney(k.revenueAtRisk, c)],
     ];
-    sections.push(section("Executive KPIs", `<div class="kpis">${tiles
+    parts.kpis = section("Executive KPIs", `<div class="kpis">${tiles
       .map(([l, v]) => `<div class="kpi"><div class="kl">${esc(l)}</div><div class="kv">${esc(v)}</div></div>`)
-      .join("")}</div>`));
+      .join("")}</div>`);
+  }
+
+  if (W.invproj && d.inventoryProjection.length) {
+    const maxv = Math.max(1, ...d.inventoryProjection.map((p) => p.days));
+    const rows = d.inventoryProjection.map((p) => `<tr>
+      <td>${esc(p.m)}${p.planned ? "" : " <span class='muted'>(now)</span>"}</td>
+      <td class="r" style="color:${p.days > d.kpis.inventoryTarget ? "#854f0b" : "#3b6d11"}">${p.days.toFixed(0)} d</td>
+      <td class="r">${fmtMoney(p.value, c)}</td>
+      <td style="width:220px"><div class="bar"><span class="bs" style="width:${(p.days / maxv * 100).toFixed(0)}%;background:${p.days > d.kpis.inventoryTarget ? "#ef9f27" : "#1d9e75"}"></span></div></td>
+    </tr>`).join("");
+    parts.invproj = section("Inventory projection — planned glide to target", `<table>
+      <thead><tr><th>Period</th><th class="r">Days</th><th class="r">Value</th><th>vs target ${d.kpis.inventoryTarget}d</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+  }
+
+  if (W.inventory && d.plants.length) {
+    const rows = d.plants.map((p) => `<tr>
+      <td>${esc(p.name)}</td>
+      <td class="r">${fmtMoney(p.invTotal, c)}</td>
+      <td class="r">${fmtMoney(p.rm, c)}</td>
+      <td class="r">${fmtMoney(p.wip, c)}</td>
+      <td class="r">${fmtMoney(p.fg, c)}</td>
+      <td class="r" style="color:${p.invDays > 40 ? "#a32d2d" : "#3b6d11"}">${p.invDays.toFixed(1)}</td>
+    </tr>`).join("");
+    parts.inventory = section("Inventory by plant", `<table>
+      <thead><tr><th>Plant</th><th class="r">Total</th><th class="r">RM</th><th class="r">WIP</th><th class="r">FG</th><th class="r">Days</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
   }
 
   if (W.trend && d.demandSeries.length) {
@@ -78,9 +120,69 @@ export function buildReportHtml(
       return `<rect x="${x}" y="${90 - h}" width="${bw}" height="${h}" rx="2" fill="${p.actual ? "#85b7eb" : "#185fa5"}"></rect>`;
     }).join("");
     const labels = s.map((p, i) => (i % 3 === 0 ? `<text x="${i * (bw + 2)}" y="100" font-size="8" fill="#8a929e">${esc(p.m.slice(2))}</text>` : "")).join("");
-    sections.push(section("Revenue trend — actuals + forecast", `
+    parts.trend = section("Demand & revenue outlook — actuals + ICP", `
       <svg viewBox="0 0 ${s.length * (bw + 2)} 104" width="100%" height="120" preserveAspectRatio="none">${bars}${labels}</svg>
-      <div class="muted" style="margin-top:4px">Light bars = actuals, dark = forecast. Values in ${esc(c)}.</div>`));
+      <div class="muted" style="margin-top:4px">Light bars = actuals, dark = ICP consensus forecast. Values in ${esc(c)}.</div>`);
+  }
+
+  if (W.bridge) {
+    const baseline = d.kpis.revenueProjection;
+    const committed = d.families.reduce((s, f) => s + f.supplyValue, 0);
+    const steps = [
+      ["Statistical baseline", fmtMoney(baseline, c), "model forecast"],
+      ["Committed supply", fmtMoney(committed, c), "after capacity constraint"],
+      ["Revenue at risk", fmtMoney(d.kpis.revenueAtRisk, c), "the gap to resolve"],
+    ];
+    parts.bridge = section("Plan bridge — baseline → committed supply", `<div class="kpis">${steps
+      .map(([l, v, s2]) => `<div class="kpi"><div class="kl">${esc(l)}</div><div class="kv">${esc(v)}</div><div class="muted">${esc(s2)}</div></div>`)
+      .join("")}</div>`);
+  }
+
+  if (W.customers && d.customerMix.length) {
+    const rows = d.customerMix.map((m) => `<tr>
+      <td><span class="dot" style="background:${m.color}"></span>${esc(m.name)}</td>
+      <td style="width:240px"><div class="bar"><span class="bs" style="width:${(m.share * 100).toFixed(0)}%;background:${m.color}"></span></div></td>
+      <td class="r">${(m.share * 100).toFixed(1)}%</td>
+    </tr>`).join("");
+    parts.customers = section("Customer demand mix", `<table><tbody>${rows}</tbody></table>`);
+  }
+
+  if (W.accuracy && d.skuAccuracy.length) {
+    const rows = d.skuAccuracy.slice(0, 12).map((s) => `<tr>
+      <td>${esc(s.sku)}</td><td>${esc(s.desc)}</td>
+      <td class="r" style="color:${tone(s.status)}">${s.mape}%</td>
+      <td class="r">${s.bias >= 0 ? "+" : ""}${s.bias}%</td>
+      <td><span class="tag ${s.status === "good" ? "ok" : s.status === "warn" ? "warn" : "bad"}">${esc(s.state)}</span></td>
+    </tr>`).join("");
+    parts.accuracy = section("Forecast accuracy & bias — SKU level (vs prior year)", `<table>
+      <thead><tr><th>SKU</th><th>Description</th><th class="r">MAPE</th><th class="r">BIAS</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+  }
+
+  if (W.issues) {
+    const rows = d.issues.length
+      ? d.issues.map((i) => `<tr><td><span class="tag ${i.severity === "critical" ? "bad" : i.severity === "high" ? "warn" : "info"}">${i.severity}</span></td><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div></td><td class="r">${i.valueAtRisk > 0 ? fmtMoney(i.valueAtRisk * 1000, c) : "—"}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="muted">No open issues — plan is balanced.</td></tr>`;
+    parts.issues = section("Key attention points", `<table><tbody>${rows}</tbody></table>`);
+  }
+
+  if (W.vulops) {
+    const rows = vulops.length
+      ? vulops.map((x) => `<tr><td>${x.kind === "vulnerability" ? "⚠️" : "💡"} <b>${esc(x.title)}</b></td><td><span class="tag ${x.likelihood === "high" ? "bad" : x.likelihood === "medium" ? "warn" : "info"}">${esc(x.likelihood)}</span></td><td class="r" style="color:${x.kind === "vulnerability" ? "#a32d2d" : "#3b6d11"}">${x.kind === "vulnerability" ? "−" : "+"}${fmtMoney(x.impact, c)}</td><td>${esc(x.owner)}</td><td>${esc(x.status)}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="muted">No vulnerabilities or opportunities logged.</td></tr>`;
+    parts.vulops = section("Vulnerabilities & Opportunities", `<table>
+      <thead><tr><th>Item</th><th>Likelihood</th><th class="r">Impact</th><th>Owner</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+  }
+
+  if (W.decisions) {
+    const tg: Record<string, string> = { open: "warn", in_progress: "info", done: "ok" };
+    const rows = decisions.length
+      ? decisions.map((x) => `<tr><td><span class="tag ${tg[x.status] || "info"}">${esc(x.status.replace("_", " "))}</span></td><td><b>${esc(x.title)}</b></td><td>${esc(x.owner)}</td><td>${esc(x.due)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="muted">No decisions logged.</td></tr>`;
+    parts.decisions = section("Decisions & actions", `<table>
+      <thead><tr><th>Status</th><th>Decision / action</th><th>Owner</th><th>Due</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
   }
 
   if (W.gap) {
@@ -98,72 +200,36 @@ export function buildReportHtml(
         <td style="width:160px"><div class="bar"><span class="bd" style="width:${dW}%"></span><span class="bs" style="width:${sW}%;background:${f.gapUnits > 0 ? "#185fa5" : "#1d9e75"}"></span></div></td>
       </tr>`;
     }).join("");
-    sections.push(section("Demand vs Supply gap — by family", `<table>
+    parts.gap = section("Demand vs Supply gap — by family (RCCP)", `<table>
       <thead><tr><th>Family</th><th class="r">Demand</th><th class="r">Supply</th><th class="r">Gap</th><th class="r">Gap %</th><th class="r">At risk</th><th>Demand / supply</th></tr></thead>
-      <tbody>${rows}</tbody></table>`));
-  }
-
-  if (W.inventory && d.plants.length) {
-    const rows = d.plants.map((p) => `<tr>
-      <td>${esc(p.name)}</td>
-      <td class="r">${fmtMoney(p.invTotal, c)}</td>
-      <td class="r">${fmtMoney(p.rm, c)}</td>
-      <td class="r">${fmtMoney(p.wip, c)}</td>
-      <td class="r">${fmtMoney(p.fg, c)}</td>
-      <td class="r" style="color:${p.invDays > 40 ? "#a32d2d" : "#3b6d11"}">${p.invDays.toFixed(1)}</td>
-    </tr>`).join("");
-    sections.push(section("Inventory by plant", `<table>
-      <thead><tr><th>Plant</th><th class="r">Total</th><th class="r">RM</th><th class="r">WIP</th><th class="r">FG</th><th class="r">Days</th></tr></thead>
-      <tbody>${rows}</tbody></table>`));
+      <tbody>${rows}</tbody></table>`);
   }
 
   if (W.capacity && d.capacityLines.length) {
     const rows = d.capacityLines.map((l) => `<tr>
       <td>${esc(l.plant)} · ${esc(l.line)}</td>
-      <td style="width:220px"><div class="bar"><span class="bs" style="width:${Math.min(100, l.util)}%;background:${l.overload ? "#e24b4a" : "#185fa5"}"></span></div></td>
-      <td class="r" style="color:${l.overload ? "#a32d2d" : "#1a1d21"}">${l.util.toFixed(0)}%</td>
-      <td>${l.overload ? '<span class="tag bad">Overload</span>' : '<span class="tag ok">OK</span>'}</td>
+      <td style="width:220px"><div class="bar"><span class="bs" style="width:${Math.min(100, l.plannedUtil)}%;background:${l.plannedUtil >= 100 ? "#e24b4a" : l.plannedUtil >= 95 ? "#ef9f27" : "#185fa5"}"></span></div></td>
+      <td class="r" style="color:${l.plannedUtil >= 100 ? "#a32d2d" : "#1a1d21"}">${l.plannedUtil.toFixed(0)}%</td>
+      <td>${l.plannedUtil >= 100 ? '<span class="tag bad">Over</span>' : l.plannedUtil >= 95 ? '<span class="tag warn">Tight</span>' : '<span class="tag ok">OK</span>'}</td>
     </tr>`).join("");
-    sections.push(section("Capacity utilisation", `<table><tbody>${rows}</tbody></table>`));
+    parts.capacity = section("Capacity utilisation — vs planned demonstrated", `<table><tbody>${rows}</tbody></table>`);
   }
 
-  if (W.issues) {
-    const rows = d.issues.length
-      ? d.issues.map((i) => `<tr><td><span class="tag ${i.severity === "critical" ? "bad" : i.severity === "high" ? "warn" : "info"}">${i.severity}</span></td><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div></td><td class="r">${i.valueAtRisk > 0 ? fmtMoney(i.valueAtRisk * 1000, c) : "—"}</td></tr>`).join("")
-      : `<tr><td colspan="3" class="muted">No open issues — plan is balanced.</td></tr>`;
-    sections.push(section("Open issues", `<table><tbody>${rows}</tbody></table>`));
-  }
-
-  if (W.decisions) {
-    const tg: Record<string, string> = { open: "warn", in_progress: "info", done: "ok" };
-    const rows = decisions.length
-      ? decisions.map((x) => `<tr><td><span class="tag ${tg[x.status] || "info"}">${esc(x.status.replace("_", " "))}</span></td><td><b>${esc(x.title)}</b></td><td>${esc(x.owner)}</td><td>${esc(x.due)}</td></tr>`).join("")
-      : `<tr><td colspan="4" class="muted">No decisions logged.</td></tr>`;
-    sections.push(section("Decisions & actions", `<table>
-      <thead><tr><th>Status</th><th>Decision / action</th><th>Owner</th><th>Due</th></tr></thead>
-      <tbody>${rows}</tbody></table>`));
-  }
-
-  if (W.accuracy && d.skuAccuracy.length) {
-    const rows = d.skuAccuracy.slice(0, 12).map((s) => `<tr>
-      <td>${esc(s.sku)}</td><td>${esc(s.desc)}</td>
-      <td class="r" style="color:${tone(s.status)}">${s.mape}%</td>
-      <td class="r">${s.bias >= 0 ? "+" : ""}${s.bias}%</td>
-      <td><span class="tag ${s.status === "good" ? "ok" : s.status === "warn" ? "warn" : "bad"}">${esc(s.state)}</span></td>
+  if (W.slob && d.slob.length) {
+    const rows = d.slob.slice(0, 12).map((s) => `<tr>
+      <td>${esc(s.sku)} <span class="muted">${esc(s.plant)}</span></td>
+      <td>${esc(s.desc)}</td>
+      <td class="r">${s.monthsCover >= 99 ? "no sales" : s.monthsCover + "m"}</td>
+      <td class="r">${fmtMoney(s.value, c)}</td>
+      <td><span class="tag ${s.status === "obsolete" ? "bad" : "warn"}">${s.status}</span></td>
     </tr>`).join("");
-    sections.push(section("Forecast accuracy & bias — SKU level (vs prior year)", `<table>
-      <thead><tr><th>SKU</th><th>Description</th><th class="r">MAPE</th><th class="r">BIAS</th><th>Status</th></tr></thead>
-      <tbody>${rows}</tbody></table>`));
+    parts.slob = section("Slow-moving & obsolete (SLOB)", `<table>
+      <thead><tr><th>SKU</th><th>Description</th><th class="r">Cover</th><th class="r">Value</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
   }
 
-  if (W.customers && d.customerMix.length) {
-    const rows = d.customerMix.map((m) => `<tr>
-      <td><span class="dot" style="background:${m.color}"></span>${esc(m.name)}</td>
-      <td style="width:240px"><div class="bar"><span class="bs" style="width:${(m.share * 100).toFixed(0)}%;background:${m.color}"></span></div></td>
-      <td class="r">${(m.share * 100).toFixed(1)}%</td>
-    </tr>`).join("");
-    sections.push(section("Customer demand mix", `<table><tbody>${rows}</tbody></table>`));
-  }
+  // Assemble in the canonical agenda order defined by WIDGETS.
+  const sections = WIDGETS.map((w) => parts[w.key]).filter(Boolean) as string[];
 
   const logo = cfg.logoDataUrl
     ? `<img class="logo" src="${cfg.logoDataUrl}" alt="logo"/>`

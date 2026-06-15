@@ -83,30 +83,36 @@ export default function SupplyPage() {
                     <span className="ml-auto text-[11px] font-medium text-[var(--color-brand-600)]">{isOpen ? "Hide" : "Options"}</span>
                   </button>
                   {isOpen && (
-                    <table className="w-full border-t border-[var(--color-line)] text-[12px]">
-                      <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
-                        <tr>
-                          <th className="px-3.5 py-1.5 font-medium">Option</th>
-                          <th className="py-1.5 text-right font-medium">Recovers</th>
-                          <th className="py-1.5 text-right font-medium">Residual gap</th>
-                          <th className="py-1.5 text-right font-medium">Cost</th>
-                          <th className="py-1.5 text-right font-medium">€/unit</th>
-                          <th className="px-3.5 py-1.5 font-medium">Note</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {opts.map((o, i) => (
-                          <tr key={o.option} className="border-t border-[var(--color-line)]">
-                            <td className="px-3.5 py-1.5 font-medium">{i === 0 && <span className="mr-1 text-[var(--color-good-2)]">★</span>}{o.option}</td>
-                            <td className="py-1.5 text-right text-[var(--color-good-2)]">{fmtUnits(o.recovered)}</td>
-                            <td className="py-1.5 text-right">{o.residual > 0 ? fmtUnits(o.residual) : "closed"}</td>
-                            <td className="py-1.5 text-right">{fmtMoney(o.cost, d.currency)}</td>
-                            <td className="py-1.5 text-right text-[var(--color-ink-2)]">{fmtMoney(o.costPerUnit, d.currency)}</td>
-                            <td className="px-3.5 py-1.5 text-[11px] text-[var(--color-ink-3)]">{o.note}</td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-t border-[var(--color-line)] text-[12px]">
+                        <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
+                          <tr>
+                            <th className="px-3.5 py-1.5 font-medium">Alternative</th>
+                            <th className="py-1.5 text-right font-medium">Volume</th>
+                            <th className="py-1.5 text-right font-medium">Residual</th>
+                            <th className="py-1.5 text-right font-medium">Op. cost</th>
+                            <th className="py-1.5 text-right font-medium">{d.currency}/unit</th>
+                            <th className="py-1.5 text-right font-medium">Capital</th>
+                            <th className="px-2 py-1.5 font-medium">Resource</th>
+                            <th className="px-3.5 py-1.5 font-medium">Timing</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {opts.map((o, i) => (
+                            <tr key={o.option} className="border-t border-[var(--color-line)]">
+                              <td className="px-3.5 py-1.5 font-medium">{i === 0 && <span className="mr-1 text-[var(--color-good-2)]" title="lowest cost per unit">★</span>}{o.option}</td>
+                              <td className="py-1.5 text-right text-[var(--color-good-2)]">+{fmtUnits(o.recovered)}</td>
+                              <td className="py-1.5 text-right">{o.residual > 0 ? fmtUnits(o.residual) : "closed"}</td>
+                              <td className="py-1.5 text-right">{fmtMoney(o.cost, d.currency)}</td>
+                              <td className="py-1.5 text-right text-[var(--color-ink-2)]">{fmtMoney(o.costPerUnit, d.currency)}</td>
+                              <td className="py-1.5 text-right">{o.capital > 0 ? fmtMoney(o.capital, d.currency) : "—"}</td>
+                              <td className="px-2 py-1.5 text-[11px] text-[var(--color-ink-2)]">{o.resource}</td>
+                              <td className="px-3.5 py-1.5 text-[11px] text-[var(--color-ink-3)]">{o.timing}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               );
@@ -114,6 +120,62 @@ export default function SupplyPage() {
           </div>
           <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">★ = lowest cost per recovered unit. Costs are indicative (premium × price); refine with real rates per company.</p>
         </Card>
+      )}
+
+      {(d.inventoryProjection.length > 0 || d.slob.length > 0) && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {d.inventoryProjection.length > 0 && (
+            <Card>
+              <CardTitle right={<Tag tone="info">target {d.kpis.inventoryTarget}d</Tag>}>Inventory projection — planned glide to target</CardTitle>
+              <div className="space-y-2">
+                {d.inventoryProjection.map((p) => {
+                  const over = p.days > d.kpis.inventoryTarget;
+                  const w = Math.min(100, (p.days / Math.max(d.kpis.inventoryTarget * 1.6, ...d.inventoryProjection.map((x) => x.days))) * 100);
+                  return (
+                    <div key={p.m} className="flex items-center gap-3">
+                      <span className="w-16 shrink-0 text-[11px] text-[var(--color-ink-2)]">{p.m.slice(2)}{!p.planned && <span className="ml-1 text-[var(--color-ink-3)]">now</span>}</span>
+                      <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+                        <div className="h-full rounded-full" style={{ width: `${w}%`, background: over ? "#EF9F27" : "#1D9E75", opacity: p.planned ? 0.85 : 1 }} />
+                      </div>
+                      <span className={`w-12 text-right text-[12px] font-semibold ${over ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{p.days.toFixed(0)}d</span>
+                      <span className="w-14 text-right text-[11px] text-[var(--color-ink-3)]">{fmtMoney(p.value, d.currency)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">Planned reduction closing a third of the gap to target each month. Frees ~{fmtMoney(Math.max(0, (d.inventoryProjection[0]?.value ?? 0) - (d.inventoryProjection[d.inventoryProjection.length - 1]?.value ?? 0)), d.currency)} of working capital.</p>
+            </Card>
+          )}
+
+          {d.slob.length > 0 ? (
+            <Card pad={false}>
+              <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
+                <span className="text-[13px] font-semibold">Slow-moving & obsolete (SLOB)</span>
+                <Tag tone="warn">{fmtMoney(d.kpis.slobValue, d.currency)} tied up</Tag>
+              </div>
+              <div className="max-h-[220px] divide-y divide-[var(--color-line)] overflow-y-auto">
+                {d.slob.slice(0, 8).map((s) => (
+                  <div key={`${s.sku}-${s.plant}`} className="flex items-center gap-3 px-4 py-2 text-[12px]">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{s.sku}</span>
+                      <span className="ml-1.5 text-[11px] text-[var(--color-ink-3)]">{s.plant}</span>
+                      <div className="truncate text-[11px] text-[var(--color-ink-2)]">{s.desc}</div>
+                    </span>
+                    <span className="text-right text-[11px] text-[var(--color-ink-2)]">{s.monthsCover >= 99 ? "no sales" : `${s.monthsCover}m cover`}</span>
+                    <span className="w-14 text-right font-semibold">{fmtMoney(s.value, d.currency)}</span>
+                    <Tag tone={s.status === "obsolete" ? "bad" : "warn"}>{s.status === "obsolete" ? "Obsolete" : "Slow"}</Tag>
+                  </div>
+                ))}
+              </div>
+              <p className="px-4 py-2 text-[11px] text-[var(--color-ink-3)]">FG sitting &gt;4 months of cover (or with no recent sales) — candidates to stop building, discount or write down.</p>
+            </Card>
+          ) : (
+            <Card>
+              <CardTitle>Slow-moving & obsolete (SLOB)</CardTitle>
+              <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No slow-moving or obsolete FG — stock is turning healthily.</div>
+            </Card>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">

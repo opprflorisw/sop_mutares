@@ -8,7 +8,7 @@ import { activeVersion } from "../lib/projects";
 import type { Project } from "../lib/projects";
 import type { ProjectData } from "../lib/projectData";
 import { exportSnopOnePager } from "../lib/exportSnop";
-import { buildReportHtml, WIDGETS, type ReportConfig, type WidgetKey } from "../lib/report";
+import { buildReportHtml, WIDGETS, AGENDA_PRESET, type ReportConfig, type WidgetKey } from "../lib/report";
 
 const KEY = (id: string) => `sop_report_cfg_${id}`;
 
@@ -24,11 +24,16 @@ function defaultConfig(project: Project): ReportConfig {
   };
 }
 function loadConfig(project: Project): ReportConfig {
+  const def = defaultConfig(project);
   try {
     const raw = localStorage.getItem(KEY(project.id));
-    if (raw) return { ...defaultConfig(project), ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Merge widgets so newly-added sections default to on for returning users.
+      return { ...def, ...saved, widgets: { ...def.widgets, ...(saved.widgets ?? {}) } };
+    }
   } catch { /* ignore */ }
-  return defaultConfig(project);
+  return def;
 }
 
 export default function ReportBuilderModal({
@@ -41,6 +46,7 @@ export default function ReportBuilderModal({
   const [cfg, setCfg] = useState<ReportConfig>(() => loadConfig(project));
   const logoInput = useRef<HTMLInputElement>(null);
   const decisions = useQuery(api.decisions.list, { projectId: project.id as never }) ?? [];
+  const vulops = useQuery(api.vulops.list, { projectId: project.id as never }) ?? [];
 
   useEffect(() => {
     localStorage.setItem(KEY(project.id), JSON.stringify(cfg));
@@ -53,6 +59,14 @@ export default function ReportBuilderModal({
 
   const set = <K extends keyof ReportConfig>(k: K, v: ReportConfig[K]) => setCfg((c) => ({ ...c, [k]: v }));
   const toggleWidget = (k: WidgetKey) => setCfg((c) => ({ ...c, widgets: { ...c.widgets, [k]: !c.widgets[k] } }));
+  const applyPreset = (keys: WidgetKey[]) => setCfg((c) => ({
+    ...c,
+    widgets: Object.fromEntries(WIDGETS.map((w) => [w.key, keys.includes(w.key)])) as Record<WidgetKey, boolean>,
+  }));
+  const setAllWidgets = (on: boolean) => setCfg((c) => ({
+    ...c,
+    widgets: Object.fromEntries(WIDGETS.map((w) => [w.key, on])) as Record<WidgetKey, boolean>,
+  }));
 
   function onLogo(file: File) {
     const reader = new FileReader();
@@ -60,7 +74,7 @@ export default function ReportBuilderModal({
     reader.readAsDataURL(file);
   }
 
-  const html = () => buildReportHtml(project, data, cfg, new Date().toLocaleDateString(), decisions);
+  const html = () => buildReportHtml(project, data, cfg, new Date().toLocaleDateString(), decisions, vulops);
 
   function downloadHtml() {
     triggerDownload(`${project.name.replace(/[^\w]+/g, "_")}_SOP_report.html`, html());
@@ -100,7 +114,14 @@ export default function ReportBuilderModal({
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto md:grid-cols-2">
           {/* widgets */}
           <div className="border-b border-[var(--color-line)] p-4 md:border-b-0 md:border-r">
-            <div className="mb-2 text-[12px] font-semibold text-[var(--color-ink-2)]">Sections to include</div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-[var(--color-ink-2)]">Sections to include</span>
+            </div>
+            <div className="mb-2.5 flex flex-wrap gap-1.5">
+              <button onClick={() => applyPreset(AGENDA_PRESET)} className="rounded-md border border-[var(--color-brand-300)] bg-[var(--color-brand-50)] px-2 py-1 text-[11px] font-medium text-[var(--color-brand-700)] hover:bg-[var(--color-brand-100)]">S&OP agenda preset</button>
+              <button onClick={() => setAllWidgets(true)} className="rounded-md border border-[var(--color-line-strong)] px-2 py-1 text-[11px] hover:bg-[var(--color-surface-2)]">All</button>
+              <button onClick={() => setAllWidgets(false)} className="rounded-md border border-[var(--color-line-strong)] px-2 py-1 text-[11px] hover:bg-[var(--color-surface-2)]">None</button>
+            </div>
             <div className="space-y-1.5">
               {WIDGETS.map((w) => (
                 <label key={w.key} className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] hover:bg-[var(--color-surface-2)]">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Bar, Line, ComposedChart, PieChart, Pie, Cell,
+  Bar, Line, ComposedChart, PieChart, Pie, Cell, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { Card, CardTitle, KpiTile, Tag } from "../../components/ui";
@@ -31,21 +31,29 @@ export default function DemandPage() {
   const totalCm = fc.reduce((s, p) => s + p.cm, 0);
   const fcBaseRev = d.demandSeries.filter((p) => !p.actual).reduce((s, p) => s + p.rev, 0);
   const baseScenario = fcBaseRev * factor;
+  const cmFrac = d.kpis.cmPct / 100;
+
+  // ---- Plan bridge (forecast value added): statistical baseline → ICP consensus → constrained supply ----
+  const planFactor = factor * (1 + growth / 100);
+  const baseline = fcBaseRev;
+  const icp = baseline * planFactor;
+  const constrainedSupply = d.families.reduce((s, f) => s + f.supplyValue, 0);
+  const budgetVar = baseline ? (icp / baseline - 1) * 100 : 0;
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Demand" subtitle="Unconstrained consensus forecast · revenue projection · bias & variation" />
+      <PageHeader title="Demand" subtitle="ICP — the agreed consensus plan · revenue & margin · forecast accuracy & bias" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile label="12m revenue (consensus)" value={fmtMoney(totalRev, d.currency)} delta={`${growth >= 0 ? "+" : ""}${growth}% lever`} deltaKind={growth >= 0 ? "up" : "down"} />
-        <KpiTile label="12m CM (est.)" value={fmtMoney(totalCm, d.currency)} delta="~18% margin" deltaKind="up" />
+        <KpiTile label="12m revenue (ICP)" value={fmtMoney(totalRev, d.currency)} delta={`${growth >= 0 ? "+" : ""}${growth}% lever`} deltaKind={growth >= 0 ? "up" : "down"} />
+        <KpiTile label="12m contribution margin" value={fmtMoney(totalCm, d.currency)} delta={`${d.kpis.cmPct}% blended margin`} deltaKind="up" />
         <KpiTile label="Forecast accuracy" value={`${d.kpis.forecastAccuracy}%`} delta="vs prior year" deltaKind="up" />
         <KpiTile label="Forecast bias" value={`${d.kpis.forecastBias >= 0 ? "+" : ""}${d.kpis.forecastBias}%`} delta={d.kpis.forecastBias > 0 ? "under-forecast" : "over-forecast"} deltaKind="warn" />
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr]">
         <Card>
-          <CardTitle right={<Tag tone="info">actual + consensus</Tag>}>Revenue & contribution margin</CardTitle>
+          <CardTitle right={<Tag tone="info">actual + ICP</Tag>}>Revenue & contribution margin</CardTitle>
           <div className="h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={series} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
@@ -96,12 +104,57 @@ export default function DemandPage() {
                 </div>
                 <div className="mt-2 text-[18px] font-semibold">{fmtMoney(rev, d.currency)}</div>
                 <div className="text-[11px] text-[var(--color-ink-2)]">12m revenue</div>
-                <div className="mt-1.5 text-[11px] text-[var(--color-ink-3)]">CM ~{fmtMoney(rev * 0.18, d.currency)}{s.delta !== 0 && ` · ${delta >= 0 ? "+" : ""}${delta.toFixed(0)}% vs base`}</div>
+                <div className="mt-1.5 text-[11px] text-[var(--color-ink-3)]">CM ~{fmtMoney(rev * cmFrac, d.currency)}{s.delta !== 0 && ` · ${delta >= 0 ? "+" : ""}${delta.toFixed(0)}% vs base`}</div>
               </div>
             );
           })}
         </div>
       </Card>
+
+      {/* Plan bridge — forecast value added (Fcst vs Budget) */}
+      <Card>
+        <CardTitle right={<Tag tone={budgetVar >= 0 ? "good" : "bad"}>{budgetVar >= 0 ? "+" : ""}{budgetVar.toFixed(1)}% vs budget</Tag>}>
+          Plan bridge — statistical baseline → ICP consensus → committed supply
+        </CardTitle>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {([
+            { label: "Statistical baseline", sub: "Budget / model forecast", val: baseline, tone: "neutral", delta: "" },
+            { label: "ICP consensus", sub: "after governed overrides + lever", val: icp, tone: icp >= baseline ? "good" : "bad", delta: `${icp >= baseline ? "+" : ""}${fmtMoney(icp - baseline, d.currency)} value added` },
+            { label: "Committed supply", sub: "after capacity constraint", val: constrainedSupply, tone: icp - constrainedSupply > 1 ? "warn" : "good", delta: icp - constrainedSupply > 1 ? `−${fmtMoney(icp - constrainedSupply, d.currency)} at risk` : "fully covered" },
+          ] as { label: string; sub: string; val: number; tone: "good" | "warn" | "bad" | "neutral"; delta: string }[]).map((s, i) => (
+            <div key={s.label} className="relative rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-3.5">
+              {i > 0 && <span className="absolute -left-2.5 top-1/2 hidden -translate-y-1/2 text-[var(--color-ink-3)] sm:block">→</span>}
+              <div className="text-[11px] text-[var(--color-ink-2)]">{s.label}</div>
+              <div className="mt-1 text-[19px] font-semibold">{fmtMoney(s.val, d.currency)}</div>
+              <div className="text-[10.5px] text-[var(--color-ink-3)]">{s.sub}</div>
+              {s.delta && <div className="mt-1.5"><Tag tone={s.tone}>{s.delta}</Tag></div>}
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">The middle step is the value sales &amp; consensus add over the raw model (forecast value-added). The last step is what manufacturing can actually commit — the difference is the gap to resolve on Supply.</p>
+      </Card>
+
+      {/* Forecast bias by lag (illustrative) */}
+      {d.forecastLag.length > 0 && (
+        <Card>
+          <CardTitle right={<Tag tone="neutral">illustrative</Tag>}>Forecast BIAS by lag — actual vs plan 1 & 2 months out</CardTitle>
+          <div className="h-[190px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={d.forecastLag.map((p) => ({ ...p, m: p.m.slice(2) }))} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
+                <XAxis dataKey="m" tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                <Bar dataKey="actual" name="Actual" fill="#85B7EB" radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="lag1" name="Plan (lag-1)" stroke="#185FA5" strokeWidth={2} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="lag2" name="Plan (lag-2)" stroke="#EF9F27" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 2 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-1 text-[11px] text-[var(--color-ink-3)]">Gap between the lines and the bars is forecast bias — consistently above = over-forecasting. Lag vintages are reconstructed from the measured accuracy profile (illustrative until prior ICP snapshots are loaded).</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr]">
         <Card>

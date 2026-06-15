@@ -7,8 +7,11 @@ import { Card, CardTitle, KpiTile, Tag, Button, PlaceholderNote } from "../../co
 import { IconFile } from "../../components/icons";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
+import { C, TOOLTIP_STYLE } from "../../lib/colors";
+import { FilterScope, FilterMenu, ResetFiltersButton, useWidgetFilter } from "../../components/widgetFilters";
 import ReportBuilderModal from "../../components/ReportBuilderModal";
 import DecisionsPanel from "../../components/DecisionsPanel";
+import VulOpsCard from "../../components/VulOpsCard";
 
 const NAV = [
   { to: "/tool/demand", emoji: "📈", title: "Demand", desc: "Unconstrained forecast, revenue, bias & variation" },
@@ -24,17 +27,38 @@ export default function OverviewPage() {
 
   if (!d.hasData) return <NoData />;
 
-  const gapData = d.families.map((f) => ({
-    short: f.family, demand: f.unconstrained, supply: f.constrained, gap: f.gapUnits,
-  }));
+  return (
+    <FilterScope>
+      <OverviewBody d={d} activeProject={activeProject} reportOpen={reportOpen} setReportOpen={setReportOpen} />
+    </FilterScope>
+  );
+}
+
+function OverviewBody({ d, activeProject, reportOpen, setReportOpen }: {
+  d: ReturnType<typeof useProjectData>;
+  activeProject: ReturnType<typeof useProjects>["activeProject"];
+  reportOpen: boolean;
+  setReportOpen: (v: boolean) => void;
+}) {
+  const famFilter = useWidgetFilter("ov-gap", d.families.map((f) => ({ key: f.family, label: f.family, color: f.color })));
+  const sevOptions = [...new Set(d.issues.map((i) => i.severity))].map((s) => ({ key: s, label: s[0].toUpperCase() + s.slice(1) }));
+  const issueFilter = useWidgetFilter("ov-issues", sevOptions);
+
+  const gapData = d.families
+    .filter((f) => !famFilter.isHidden(f.family))
+    .map((f) => ({ short: f.family, demand: f.unconstrained, supply: f.constrained, gap: f.gapUnits }));
+  const issues = d.issues.filter((i) => !issueFilter.isHidden(i.severity));
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <PageHeader title="Executive S&OP" subtitle="Monthly snapshot — the numbers leadership decides on" />
-        <Button variant="primary" onClick={() => setReportOpen(true)}>
-          <IconFile size={14} /> Build report
-        </Button>
+        <div className="flex items-center gap-2">
+          <ResetFiltersButton />
+          <Button variant="primary" onClick={() => setReportOpen(true)}>
+            <IconFile size={14} /> Build report
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -47,19 +71,19 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr]">
         <Card>
-          <CardTitle right={<Tag tone="info">unconstrained vs constrained</Tag>}>
+          <CardTitle right={<div className="flex items-center gap-1.5"><Tag tone="info">unconstrained vs constrained</Tag><FilterMenu filter={famFilter} label="Product families" /></div>}>
             Demand vs supply gap — by product family (units)
           </CardTitle>
           <div className="h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={gapData} margin={{ top: 6, right: 8, left: 4, bottom: 0 }} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
-                <XAxis dataKey="short" tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} interval={0} />
-                <YAxis tick={{ fontSize: 10, fill: "#8a929e" }} tickLine={false} axisLine={false} tickFormatter={fmtUnits} width={42} />
-                <Tooltip formatter={(v: number) => fmtUnits(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
-                <Bar dataKey="demand" name="Demand (unconstrained)" fill="#85B7EB" radius={[3, 3, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="short" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 10, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={fmtUnits} width={42} />
+                <Tooltip formatter={(v: number) => fmtUnits(v)} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="demand" name="Demand (unconstrained)" fill={C.demand} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="supply" name="Supply (constrained)" radius={[3, 3, 0, 0]}>
-                  {gapData.map((g, i) => <Cell key={i} fill={g.gap > 0 ? "#185FA5" : "#1D9E75"} />)}
+                  {gapData.map((g, i) => <Cell key={i} fill={g.gap > 0 ? C.supply : C.good} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -67,17 +91,21 @@ export default function OverviewPage() {
           <p className="mt-1 text-[11px] text-[var(--color-ink-3)]">
             Where the dark bar is below the light bar, demand can't be met — that gap is the decision.
             Total revenue at risk: {fmtMoney(d.kpis.revenueAtRisk, d.currency)}.
+            {famFilter.active && <span className="text-[var(--color-brand-600)]"> · filtered to {gapData.length} of {d.families.length} families</span>}
           </p>
         </Card>
 
         <Card pad={false}>
           <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
             <span className="text-[13px] font-semibold">Issues to decide</span>
-            <Tag tone="bad">{d.issues.filter((i) => i.severity === "critical").length} critical</Tag>
+            <div className="flex items-center gap-1.5">
+              <Tag tone="bad">{issues.filter((i) => i.severity === "critical").length} critical</Tag>
+              {sevOptions.length > 1 && <FilterMenu filter={issueFilter} label="Severity" />}
+            </div>
           </div>
           <div className="divide-y divide-[var(--color-line)]">
-            {d.issues.length === 0 && <div className="px-4 py-3 text-[12px] text-[var(--color-ink-3)]">No open issues — plan is balanced.</div>}
-            {d.issues.map((i) => (
+            {issues.length === 0 && <div className="px-4 py-3 text-[12px] text-[var(--color-ink-3)]">{d.issues.length === 0 ? "No open issues — plan is balanced." : "No issues match the current filter."}</div>}
+            {issues.map((i) => (
               <div key={i.title} className="flex items-start gap-2.5 px-4 py-2.5">
                 <span className="mt-0.5">{i.severity === "critical" ? "🔴" : i.severity === "high" ? "🟠" : "🟡"}</span>
                 <div className="min-w-0 flex-1">
@@ -92,6 +120,8 @@ export default function OverviewPage() {
           </div>
         </Card>
       </div>
+
+      {activeProject && <VulOpsCard projectId={activeProject.id} currency={d.currency} />}
 
       {activeProject && <DecisionsPanel projectId={activeProject.id} />}
 

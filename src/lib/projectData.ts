@@ -1,17 +1,13 @@
 import { useMemo } from "react";
 import { parseCsv } from "./csv";
 import { activeVersion, findFile, useProjects, type Project } from "./projects";
+import { PALETTE } from "./colors";
 
 // ============================================================
 // projectData — derives every module's numbers from the project's
 // ACTIVE uploaded CSVs (the real implementation behind the phases).
 // Pure + memoised; degrades gracefully when files are missing.
 // ============================================================
-
-const PALETTE = [
-  "#185FA5", "#1D9E75", "#EF9F27", "#7F77DD", "#D85A30",
-  "#378ADD", "#0F6E56", "#533AAB", "#E24B4A", "#888780",
-];
 
 function rowsOf(project: Project, templateId: string): Record<string, string>[] {
   const f = findFile(project, templateId);
@@ -32,21 +28,38 @@ export type Family = {
   unconstrained: number; // units
   constrained: number;
   price: number;
+  cost: number; // weighted std cost / unit
+  cmPct: number; // contribution margin %
+  cmValue: number; // contribution margin on the demand plan (currency)
   gapUnits: number;
   gapPct: number;
   demandValue: number; // currency
   supplyValue: number;
   revenueAtRisk: number;
+  cmAtRisk: number; // margin lost on the gap
 };
 
 export type CapacityLine = {
   plant: string;
   line: string;
-  availableMin: number;
+  availableMin: number; // available demonstrated capacity (the "MAC")
+  plannedMin: number; // planned available demonstrated capacity (= available × planning %)
   requiredMin: number;
-  util: number;
-  overload: boolean;
+  util: number; // vs available demonstrated (req / available)
+  plannedUtil: number; // vs planned available demonstrated (req / planned)
+  overload: boolean; // req > available demonstrated
   color: string;
+};
+
+// Slow-moving & obsolete stock (SLOB) — FG sitting longer than it sells.
+export type SlobItem = {
+  sku: string;
+  desc: string;
+  plant: string;
+  value: number;
+  qty: number;
+  monthsCover: number; // FG qty / avg monthly sales
+  status: "obsolete" | "slow";
 };
 
 export type PlantInv = {
@@ -98,18 +111,33 @@ export type ProjectData = {
   capacitySchedule: { periods: string[]; rows: { line: string; plant: string; util: number[] }[] };
   materialAlerts: MaterialAlert[];
   issues: Issue[];
+  slob: SlobItem[];
+  // Forward inventory projection — planned glide toward target.
+  inventoryProjection: { m: string; days: number; value: number; planned: boolean }[];
+  // Forecast bias by lag — actual vs the plan as it stood 1 and 2 months out (illustrative).
+  forecastLag: { m: string; actual: number; lag1: number; lag2: number }[];
+  plannedCapacityPct: number; // planning % applied to available demonstrated capacity
   kpis: {
     revenueProjection: number;
+    contributionMargin: number; // 12m CM value on the demand plan
+    cmPct: number; // blended contribution margin %
     forecastAccuracy: number;
     forecastBias: number;
     inventoryDays: number;
     inventoryTarget: number;
     inventoryTurns: number;
     capacityUtil: number;
+    plannedCapacityUtil: number; // vs planned available demonstrated capacity
     revenueAtRisk: number;
+    slobValue: number;
     overloadedLines: number;
   };
 };
+
+// Planning target as a % of available demonstrated capacity (the "MAC").
+// Per the Mutares RCCP method the MAC is only achieved ~25% of the time, so
+// the plan is built on a haircut of it. 0.85 is a sensible default.
+export const PLANNED_CAPACITY_PCT = 0.85;
 
 export function computeProjectData(project: Project | null): ProjectData {
   const empty: ProjectData = {
@@ -117,8 +145,9 @@ export function computeProjectData(project: Project | null): ProjectData {
     currency: project?.currency ?? "EUR",
     families: [], capacityLines: [], plants: [], skuAccuracy: [],
     customerMix: [], demandSeries: [], capacitySchedule: { periods: [], rows: [] }, materialAlerts: [],
-    issues: [],
-    kpis: { revenueProjection: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, inventoryTurns: 0, capacityUtil: 0, revenueAtRisk: 0, overloadedLines: 0 },
+    issues: [], slob: [], inventoryProjection: [], forecastLag: [],
+    plannedCapacityPct: PLANNED_CAPACITY_PCT,
+    kpis: { revenueProjection: 0, contributionMargin: 0, cmPct: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, inventoryTurns: 0, capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue: 0, overloadedLines: 0 },
   };
   if (!project) return empty;
 
@@ -145,10 +174,13 @@ export function computeProjectData(project: Project | null): ProjectData {
   const capLatest = capRows.filter((r) => r.date === latestCap);
   const capacityLines: CapacityLine[] = capLatest.map((r) => {
     const avail = num(r.available_min);
+    const planned = avail * PLANNED_CAPACITY_PCT;
     const req = num(r.required_min);
     return {
-      plant: r.plant, line: r.resource, availableMin: avail, requiredMin: req,
-      util: avail ? (req / avail) * 100 : 0, overload: req > avail,
+      plant: r.plant, line: r.resource, availableMin: avail, plannedMin: planned, requiredMin: req,
+      util: avail ? (req / avail) * 100 : 0,
+      plannedUtil: planned ? (req / planned) * 100 : 0,
+      overload: req > avail,
       color: familyColor.get(skus.find((s) => s.plant === r.plant)?.family ?? "") ?? "#185FA5",
     };
   });
@@ -181,6 +213,7 @@ export function computeProjectData(project: Project | null): ProjectData {
   const familyDemandUnits = new Map<string, number>();
   const familyDemandValue = new Map<string, number>();
   const familyWeightedPrice = new Map<string, { v: number; q: number }>();
+  const familyWeightedCost = new Map<string, { v: number; q: number }>();
   for (const r of fcRows) {
     const s = skuByCode.get(r.sku);
     if (!s) continue;
@@ -190,6 +223,9 @@ export function computeProjectData(project: Project | null): ProjectData {
     const w = familyWeightedPrice.get(s.family) ?? { v: 0, q: 0 };
     w.v += q * s.price; w.q += q;
     familyWeightedPrice.set(s.family, w);
+    const wc = familyWeightedCost.get(s.family) ?? { v: 0, q: 0 };
+    wc.v += q * s.cost; wc.q += q;
+    familyWeightedCost.set(s.family, wc);
   }
   // dominant plant per family (by demand)
   const familyPlantUnits = new Map<string, Map<string, number>>();
@@ -205,6 +241,9 @@ export function computeProjectData(project: Project | null): ProjectData {
     const unconstrained = familyDemandUnits.get(fam) ?? 0;
     const w = familyWeightedPrice.get(fam) ?? { v: 0, q: 1 };
     const price = w.q ? w.v / w.q : 0;
+    const wc = familyWeightedCost.get(fam) ?? { v: 0, q: 1 };
+    const cost = wc.q ? wc.v / wc.q : 0;
+    const cmPct = price ? ((price - cost) / price) * 100 : 0;
     // constrained by the dominant plant's capacity utilisation
     const plantsForFam = familyPlantUnits.get(fam);
     let domPlant = "";
@@ -213,14 +252,22 @@ export function computeProjectData(project: Project | null): ProjectData {
     const u = plantUtil.get(domPlant) ?? 1;
     const constrained = u > 1 ? Math.round(unconstrained / u) : unconstrained;
     const gapUnits = Math.max(0, unconstrained - constrained);
+    const unitMargin = price - cost;
     return {
       family: fam, color: familyColor.get(fam)!,
-      unconstrained, constrained, price,
+      unconstrained, constrained, price, cost,
+      cmPct, cmValue: unconstrained * unitMargin,
       gapUnits, gapPct: unconstrained ? (gapUnits / unconstrained) * 100 : 0,
       demandValue: unconstrained * price, supplyValue: constrained * price,
       revenueAtRisk: gapUnits * price,
+      cmAtRisk: gapUnits * unitMargin,
     };
   }).sort((a, b) => b.demandValue - a.demandValue);
+
+  // Blended contribution margin across the demand plan (real, from std cost).
+  const totalDemandValueAll = familyData.reduce((s, f) => s + f.demandValue, 0);
+  const totalCmValueAll = familyData.reduce((s, f) => s + f.cmValue, 0);
+  const blendedCmPct = totalDemandValueAll ? totalCmValueAll / totalDemandValueAll : 0;
 
   // ---- Inventory (latest snapshot) ----
   const invDates = [...new Set(invRows.map((r) => r.date))].sort();
@@ -308,7 +355,7 @@ export function computeProjectData(project: Project | null): ProjectData {
   const histSet = new Set(histMonths);
   const demandSeries = allMonths.map((m) => {
     const rev = revByMonth.get(m) ?? 0;
-    return { m, rev, cm: rev * 0.18, actual: histSet.has(m) };
+    return { m, rev, cm: rev * blendedCmPct, actual: histSet.has(m) };
   });
 
   // ---- KPIs ----
@@ -337,6 +384,62 @@ export function computeProjectData(project: Project | null): ProjectData {
   // SCOR inventory turnover ≈ annual demand value / inventory value on hand
   const annualDemandValueAll = [...plantDemandValue.values()].reduce((a, b) => a + b, 0);
   const inventoryTurns = invTotalAll ? +(annualDemandValueAll / invTotalAll).toFixed(1) : 0;
+  const totPlanned = capLatest.reduce((s, r) => s + num(r.available_min) * PLANNED_CAPACITY_PCT, 0);
+  const plannedCapacityUtil = totPlanned ? Math.round((totReq / totPlanned) * 100) : 0;
+  const contributionMargin = totalCmValueAll;
+
+  // ---- SLOB — slow-moving & obsolete FG stock ----
+  const salesTotalBySku = new Map<string, number>();
+  for (const r of salesRows) salesTotalBySku.set(r.sku, (salesTotalBySku.get(r.sku) ?? 0) + num(r.qty));
+  const histMonthCount = Math.max(1, new Set(salesRows.map((r) => ym(r.date))).size);
+  const slob: SlobItem[] = invLatest
+    .filter((r) => r.category === "FG" && num(r.qty) > 0)
+    .map((r) => {
+      const sk = skuByCode.get(r.sku);
+      const avgMonthly = (salesTotalBySku.get(r.sku) ?? 0) / histMonthCount;
+      const qty = num(r.qty);
+      const monthsCover = avgMonthly > 0 ? qty / avgMonthly : Infinity;
+      const status: SlobItem["status"] | null =
+        avgMonthly === 0 ? "obsolete" : monthsCover > 4 ? "slow" : null;
+      if (!status) return null;
+      return {
+        sku: r.sku, desc: sk?.desc ?? r.sku, plant: r.plant,
+        value: num(r.value), qty,
+        monthsCover: monthsCover === Infinity ? 99 : +monthsCover.toFixed(1),
+        status,
+      };
+    })
+    .filter(Boolean) as SlobItem[];
+  slob.sort((a, b) => b.value - a.value);
+  const slobValue = slob.reduce((s, x) => s + x.value, 0);
+
+  // ---- Forward inventory projection — planned glide toward target ----
+  const perDayAll = annualDemandValueAll / 365;
+  const projMonths = fcMonthsAll.slice(0, 3);
+  const inventoryProjection: ProjectData["inventoryProjection"] = [];
+  if (invTotalAll > 0 && perDayAll > 0) {
+    inventoryProjection.push({ m: latestInv ? ym(latestInv) : "now", days: +invDaysWeighted.toFixed(1), value: invTotalAll, planned: false });
+    let days = invDaysWeighted;
+    for (const m of projMonths) {
+      days = days + (inventoryTarget - days) / 3; // close a third of the gap each month
+      inventoryProjection.push({ m, days: +days.toFixed(1), value: Math.round(days * perDayAll), planned: true });
+    }
+  }
+
+  // ---- Forecast bias by lag — actual vs plan 1 & 2 months out (illustrative) ----
+  const biasFrac = forecastBias / 100;
+  const accErr = (100 - forecastAccuracy) / 100;
+  const recentHist = histMonths.slice(-6);
+  const forecastLag = recentHist.map((m, i) => {
+    const actual = revByMonth.get(m) ?? 0;
+    const dir = i % 2 === 0 ? 1 : -1;
+    return {
+      m,
+      actual,
+      lag1: Math.round(actual * (1 + biasFrac * 0.6)),
+      lag2: Math.round(actual * (1 + biasFrac + dir * accErr * 0.6)),
+    };
+  });
 
   // ---- Material / MRP alerts (supplier reliability + lead time × BOM) ----
   const bomRows = rowsOf(project, "bom");
@@ -386,7 +489,11 @@ export function computeProjectData(project: Project | null): ProjectData {
     capacitySchedule,
     materialAlerts,
     issues,
-    kpis: { revenueProjection, forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, inventoryTurns, capacityUtil, revenueAtRisk, overloadedLines },
+    slob,
+    inventoryProjection,
+    forecastLag,
+    plannedCapacityPct: PLANNED_CAPACITY_PCT,
+    kpis: { revenueProjection, contributionMargin, cmPct: +(blendedCmPct * 100).toFixed(1), forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, inventoryTurns, capacityUtil, plannedCapacityUtil, revenueAtRisk, slobValue, overloadedLines },
   };
 }
 

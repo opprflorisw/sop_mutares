@@ -47,10 +47,10 @@ export default function ConsensusOverridesCard({
   return (
     <Card pad={false}>
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-4 py-3">
-        <span className="text-[13px] font-semibold">Consensus overrides</span>
+        <span className="text-[13px] font-semibold">ICP overrides — consensus plan</span>
         <Tag tone={overrides && overrides.length ? "info" : "neutral"}>{overrides?.length ?? 0} active</Tag>
         <span className="text-[11px] text-[var(--color-ink-2)]">
-          Baseline {fmtMoney(baseline, currency)} → consensus <strong className="text-[var(--color-ink)]">{fmtMoney(adjusted, currency)}</strong>
+          Baseline {fmtMoney(baseline, currency)} → ICP <strong className="text-[var(--color-ink)]">{fmtMoney(adjusted, currency)}</strong>
           {factor !== 1 && <span className={factor > 1 ? "text-[var(--color-good-2)]" : "text-[var(--color-bad)]"}> ({factor > 1 ? "+" : ""}{((factor - 1) * 100).toFixed(1)}%)</span>}
         </span>
         <Button className="ml-auto" onClick={() => { setFamily(families[0]?.family ?? ""); setAdding((a) => !a); }}>

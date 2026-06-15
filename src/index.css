@@ -28,13 +28,23 @@
   --color-ink-2: #5b6470;
   --color-ink-3: #8a929e;
 
-  /* Status */
+  /* Status — one green, one amber, one red, one purple accent (kept
+     coherent so charts, tags, KPI deltas and bars all read the same). */
   --color-good: #1d9e75;
-  --color-good-2: #3b9b3b;
-  --color-warn: #ef9f27;
+  --color-good-2: #1d9e75;
+  --color-warn: #e08a1e;
   --color-bad: #e24b4a;
   --color-info: #185fa5;
   --color-accent: #7f77dd;
+
+  /* Shared categorical chart palette (blue-led, on-brand) */
+  --color-chart-demand: #85b7eb;
+  --color-chart-supply: #185fa5;
+  --color-chart-forecast: #378add;
+  --color-chart-good: #1d9e75;
+  --color-chart-warn: #e08a1e;
+  --color-chart-bad: #e24b4a;
+  --color-chart-accent: #7f77dd;
 
   /* Radii */
   --radius-sm: 6px;

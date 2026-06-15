@@ -30,11 +30,13 @@ export type DataTemplate = {
 
 export const REQUIREMENT_META: Record<
   Requirement,
-  { label: string; tone: "bad" | "warn" | "neutral"; blurb: string }
+  { label: string; tone: "info" | "accent" | "neutral"; bar: string; blurb: string }
 > = {
-  required: { label: "Required", tone: "bad", blurb: "Core modules need this file." },
-  recommended: { label: "Recommended", tone: "warn", blurb: "Unlocks more analysis." },
-  optional: { label: "Optional", tone: "neutral", blurb: "Nice to have." },
+  // Monochrome-blue hierarchy with a purple accent for "recommended" —
+  // coherent with the brand palette (the old amber clashed).
+  required: { label: "Required", tone: "info", bar: "#185FA5", blurb: "Core modules need this file." },
+  recommended: { label: "Recommended", tone: "accent", bar: "#7F77DD", blurb: "Unlocks more analysis." },
+  optional: { label: "Optional", tone: "neutral", bar: "#8A929E", blurb: "Nice to have." },
 };
 
 export const TEMPLATES: DataTemplate[] = [

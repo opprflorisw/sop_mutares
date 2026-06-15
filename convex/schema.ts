@@ -47,6 +47,20 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_project", ["projectId"]),
 
+  // VulOps — Vulnerabilities & Opportunities register. An output of
+  // every S&OP/IBP meeting: risks to the plan and upside levers, each
+  // sized by value impact, with an owner and status.
+  vulops: defineTable({
+    projectId: v.id("projects"),
+    kind: v.union(v.literal("vulnerability"), v.literal("opportunity")),
+    title: v.string(),
+    impact: v.number(), // value impact (currency); risk = downside, opp = upside
+    likelihood: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    owner: v.string(),
+    status: v.union(v.literal("open"), v.literal("mitigating"), v.literal("closed")),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
   // S&OP decision & action log — the artifact that turns the review
   // into committed actions (owner, status, due date) per project.
   decisions: defineTable({

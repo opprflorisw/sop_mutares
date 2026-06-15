@@ -77,3 +77,21 @@ export const IconFile = (p: IconProps) => (
 export const IconAlert = (p: IconProps) => (
   <svg {...base(p)}><path d="M12 3l9 16H3l9-16z" /><path d="M12 10v4M12 17v.5" /></svg>
 );
+export const IconDots = (p: IconProps) => (
+  <svg {...base(p)}><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+);
+export const IconEye = (p: IconProps) => (
+  <svg {...base(p)}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+);
+export const IconFilter = (p: IconProps) => (
+  <svg {...base(p)}><path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" /></svg>
+);
+export const IconChevronDown = (p: IconProps) => (
+  <svg {...base(p)}><path d="M6 9l6 6 6-6" /></svg>
+);
+export const IconGear = (p: IconProps) => (
+  <svg {...base(p)}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+);
+export const IconSpinner = ({ size = 16, className = "", ...p }: IconProps) => (
+  <svg {...base({ size, ...p })} className={`animate-spin ${className}`}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+);

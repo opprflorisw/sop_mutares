@@ -12,6 +12,7 @@ import type * as decisions from "../decisions.js";
 import type * as overrides from "../overrides.js";
 import type * as projects from "../projects.js";
 import type * as users from "../users.js";
+import type * as vulops from "../vulops.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   overrides: typeof overrides;
   projects: typeof projects;
   users: typeof users;
+  vulops: typeof vulops;
 }>;
 
 /**
