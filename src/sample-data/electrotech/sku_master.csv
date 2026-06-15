@@ -1,0 +1,7 @@
+sku,description,family,uom,plant,std_cost,price
+SH-100,Smart Home Hub G2,Smart Home Hubs,pcs,BER,52,85
+SH-140,Smart Home Hub Mini,Smart Home Hubs,pcs,BER,28,45
+IC-220,Industrial Controller X,Industrial Controllers,pcs,KAR,92,140
+IC-260,Industrial Controller S,Industrial Controllers,pcs,KAR,70,110
+PM-330,Power Module 48V,Power Modules,pcs,LYO,38,60
+SN-410,Sensor Node BLE,Sensor Nodes,pcs,LYO,12,22

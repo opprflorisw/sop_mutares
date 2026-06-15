@@ -1,0 +1,5 @@
+supplier,component,lead_time_days,reliability,moq
+SUP-SZ,CAP-100UF,35,84,50000
+SUP-SZ,FET-60V,35,84,20000
+SUP-EU,MCU-32,18,95,5000
+SUP-EU,PCB-4L,21,93,3000

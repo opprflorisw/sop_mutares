@@ -1,15 +1,19 @@
+import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import { Card, CardTitle, KpiTile, Tag } from "../../components/ui";
 import { PageHeader, NoData } from "./OverviewPage";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
+import { mitigationsFor } from "../../lib/mitigations";
 
 const SEV = { critical: "bad", high: "warn", medium: "info" } as const;
 
 export default function SupplyPage() {
   const d = useProjectData();
+  const [openGap, setOpenGap] = useState<string | null>(null);
   if (!d.hasData) return <NoData />;
+  const constrained = d.families.filter((f) => f.gapUnits > 0);
 
   const totalDemand = d.families.reduce((s, f) => s + f.demandValue, 0);
   const totalSupply = d.families.reduce((s, f) => s + f.supplyValue, 0);
@@ -61,6 +65,56 @@ export default function SupplyPage() {
           </tbody>
         </table>
       </Card>
+
+      {constrained.length > 0 && (
+        <Card>
+          <CardTitle right={<Tag tone="warn">{constrained.length} to resolve</Tag>}>Gap resolution — costed options</CardTitle>
+          <div className="space-y-2">
+            {constrained.map((f) => {
+              const isOpen = openGap === f.family;
+              const opts = mitigationsFor(f.gapUnits, f.price);
+              return (
+                <div key={f.family} className="rounded-lg border border-[var(--color-line)]">
+                  <button onClick={() => setOpenGap(isOpen ? null : f.family)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left">
+                    <span className={`inline-block transition-transform ${isOpen ? "rotate-90" : ""} text-[var(--color-ink-3)]`}>▸</span>
+                    <span className="h-2 w-2 rounded-sm" style={{ background: f.color }} />
+                    <span className="text-[12.5px] font-semibold">{f.family}</span>
+                    <span className="text-[11px] text-[var(--color-ink-2)]">short {fmtUnits(f.gapUnits)} units · {fmtMoney(f.revenueAtRisk, d.currency)} at risk</span>
+                    <span className="ml-auto text-[11px] font-medium text-[var(--color-brand-600)]">{isOpen ? "Hide" : "Options"}</span>
+                  </button>
+                  {isOpen && (
+                    <table className="w-full border-t border-[var(--color-line)] text-[12px]">
+                      <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
+                        <tr>
+                          <th className="px-3.5 py-1.5 font-medium">Option</th>
+                          <th className="py-1.5 text-right font-medium">Recovers</th>
+                          <th className="py-1.5 text-right font-medium">Residual gap</th>
+                          <th className="py-1.5 text-right font-medium">Cost</th>
+                          <th className="py-1.5 text-right font-medium">€/unit</th>
+                          <th className="px-3.5 py-1.5 font-medium">Note</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {opts.map((o, i) => (
+                          <tr key={o.option} className="border-t border-[var(--color-line)]">
+                            <td className="px-3.5 py-1.5 font-medium">{i === 0 && <span className="mr-1 text-[var(--color-good-2)]">★</span>}{o.option}</td>
+                            <td className="py-1.5 text-right text-[var(--color-good-2)]">{fmtUnits(o.recovered)}</td>
+                            <td className="py-1.5 text-right">{o.residual > 0 ? fmtUnits(o.residual) : "closed"}</td>
+                            <td className="py-1.5 text-right">{fmtMoney(o.cost, d.currency)}</td>
+                            <td className="py-1.5 text-right text-[var(--color-ink-2)]">{fmtMoney(o.costPerUnit, d.currency)}</td>
+                            <td className="px-3.5 py-1.5 text-[11px] text-[var(--color-ink-3)]">{o.note}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-[var(--color-ink-3)]">★ = lowest cost per recovered unit. Costs are indicative (premium × price); refine with real rates per company.</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
         <Card pad={false}>

@@ -9,10 +9,11 @@ import type { Project } from "./projects";
 // ============================================================
 
 export type WidgetKey =
-  | "kpis" | "gap" | "inventory" | "capacity" | "issues" | "decisions" | "accuracy" | "customers";
+  | "kpis" | "trend" | "gap" | "inventory" | "capacity" | "issues" | "decisions" | "accuracy" | "customers";
 
 export const WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "kpis", label: "Executive KPIs" },
+  { key: "trend", label: "Revenue trend" },
   { key: "gap", label: "Demand vs Supply gap" },
   { key: "inventory", label: "Inventory by plant" },
   { key: "capacity", label: "Capacity & overload" },
@@ -65,6 +66,21 @@ export function buildReportHtml(
     sections.push(section("Executive KPIs", `<div class="kpis">${tiles
       .map(([l, v]) => `<div class="kpi"><div class="kl">${esc(l)}</div><div class="kv">${esc(v)}</div></div>`)
       .join("")}</div>`));
+  }
+
+  if (W.trend && d.demandSeries.length) {
+    const s = d.demandSeries;
+    const max = Math.max(1, ...s.map((p) => p.rev));
+    const bw = Math.max(4, Math.floor(760 / s.length) - 2);
+    const bars = s.map((p, i) => {
+      const h = Math.round((p.rev / max) * 80);
+      const x = i * (bw + 2);
+      return `<rect x="${x}" y="${90 - h}" width="${bw}" height="${h}" rx="2" fill="${p.actual ? "#85b7eb" : "#185fa5"}"></rect>`;
+    }).join("");
+    const labels = s.map((p, i) => (i % 3 === 0 ? `<text x="${i * (bw + 2)}" y="100" font-size="8" fill="#8a929e">${esc(p.m.slice(2))}</text>` : "")).join("");
+    sections.push(section("Revenue trend — actuals + forecast", `
+      <svg viewBox="0 0 ${s.length * (bw + 2)} 104" width="100%" height="120" preserveAspectRatio="none">${bars}${labels}</svg>
+      <div class="muted" style="margin-top:4px">Light bars = actuals, dark = forecast. Values in ${esc(c)}.</div>`));
   }
 
   if (W.gap) {

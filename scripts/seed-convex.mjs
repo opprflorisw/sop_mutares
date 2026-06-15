@@ -13,11 +13,13 @@ import { api } from "../convex/_generated/api.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-// URL: CLI arg wins (e.g. prod), else VITE_CONVEX_URL from .env.local (dev)
+// URL: http arg wins (e.g. prod), else VITE_CONVEX_URL from .env.local (dev).
+// Pass --reset to wipe existing users/projects before seeding.
 const env = readFileSync(join(root, ".env.local"), "utf8");
-const url = process.argv[2] || env.match(/VITE_CONVEX_URL=(.+)/)?.[1].trim();
+const url = process.argv.slice(2).find((a) => a.startsWith("http")) || env.match(/VITE_CONVEX_URL=(.+)/)?.[1].trim();
+const RESET = process.argv.includes("--reset");
 if (!url) throw new Error("Provide a Convex URL (arg) or set VITE_CONVEX_URL in .env.local");
-console.log(`Seeding ${url}`);
+console.log(`Seeding ${url}${RESET ? " (reset)" : ""}`);
 
 const TIME_FIELDS = {
   sales_history: "date",
@@ -28,6 +30,29 @@ const TIME_FIELDS = {
 const TEMPLATE_IDS = [
   "sku_master", "customer_master", "plant_master", "sales_history",
   "demand_forecast", "bom", "inventory", "capacity",
+];
+
+const SCENARIOS = [
+  {
+    dir: "sealings",
+    project: {
+      name: "SFC India — Sealings",
+      industry: "Automotive (Sealings)",
+      factory: "5 plants · Bawal, Manesar, Chennai, Sanand, Sahibabad",
+      description: "Automotive sealing systems for Indian OEMs (TML, Maruti, Tata, M&M, Nissan, VW). Dec'22 ICP baseline ₹35.56 Cr across 5 plants.",
+      currency: "INR",
+    },
+  },
+  {
+    dir: "electrotech",
+    project: {
+      name: "ElectroTech Industries — EU",
+      industry: "Electronics manufacturing",
+      factory: "3 plants · Lyon, Karlsruhe, Berlin",
+      description: "Connected-device electronics maker (smart-home hubs, industrial controllers, power modules, sensors) for EU B2B/B2C customers. Capacitor supply from Shenzhen is a key risk.",
+      currency: "EUR",
+    },
+  },
 ];
 
 function parse(text) {
@@ -74,44 +99,33 @@ function analyze(templateId, text) {
   return { rows: rows.length, status, issues, coverage };
 }
 
-const files = TEMPLATE_IDS.map((templateId) => {
-  const content = readFileSync(join(root, "src", "sample-data", "sealings", `${templateId}.csv`), "utf8");
-  const a = analyze(templateId, content);
-  return { templateId, fileName: `${templateId}.csv`, content, ...a };
+const projectsPayload = SCENARIOS.map((sc) => {
+  const files = TEMPLATE_IDS.map((templateId) => {
+    const content = readFileSync(join(root, "src", "sample-data", sc.dir, `${templateId}.csv`), "utf8");
+    const a = analyze(templateId, content);
+    return { templateId, fileName: `${templateId}.csv`, content, ...a };
+  });
+  return { ...sc.project, files };
 });
 
-const payload = {
-  users: [
-    { name: "Floris", email: "floris@oppr.ai", role: "Admin", password: "12345678" },
-    { name: "Sanchay", email: "sanchay@oppr.ai", role: "Admin", password: "12345678" },
-  ],
-  project: {
-    name: "SFC India — Sealings",
-    industry: "Automotive (Sealings)",
-    factory: "5 plants · Bawal, Manesar, Chennai, Sanand, Sahibabad",
-    description:
-      "Automotive sealing systems for Indian OEMs (TML, Maruti, Tata, M&M, Nissan, VW). Dec'22 ICP baseline ₹35.56 Cr across 5 plants.",
-    currency: "INR",
-  },
-  files,
-};
+const users = [
+  { name: "Floris", email: "floris@oppr.ai", role: "Admin", password: "12345678" },
+  { name: "Sanchay", email: "sanchay@oppr.ai", role: "Admin", password: "12345678" },
+];
 
 const client = new ConvexHttpClient(url);
 
-// reset first so re-running the seed reflects the latest sample data
-const existingProjects = await client.query(api.projects.listWithFiles, {});
-for (const p of existingProjects) await client.mutation(api.projects.remove, { id: p.id });
-const existingUsers = await client.query(api.users.list, {});
-for (const u of existingUsers) await client.mutation(api.users.remove, { id: u.id });
+if (RESET) {
+  const existingProjects = await client.query(api.projects.listWithFiles, {});
+  for (const p of existingProjects) await client.mutation(api.projects.remove, { id: p.id });
+  const existingUsers = await client.query(api.users.list, {});
+  for (const u of existingUsers) await client.mutation(api.users.remove, { id: u.id });
+}
 
-await client.mutation(api.projects.ensureSeed, payload);
-const projects = await client.query(api.projects.listWithFiles, {});
-const users = await client.query(api.users.list, {});
-console.log(`Seeded. Users: ${users.length}. Projects: ${projects.length}.`);
-for (const p of projects) {
-  console.log(`  ${p.name} — ${p.files.length} files`);
-  for (const f of p.files) {
-    const v = f.versions.find((x) => x.id === f.activeVersionId);
-    console.log(`    ${f.templateId.padEnd(16)} v${v.version} ${v.rows} rows [${v.status}]`);
-  }
+await client.mutation(api.projects.ensureSeed, { users, projects: projectsPayload });
+const out = await client.query(api.projects.listWithFiles, {});
+const userList = await client.query(api.users.list, {});
+console.log(`Seeded. Users: ${userList.length}. Projects: ${out.length}.`);
+for (const p of out) {
+  console.log(`  ${p.name} (${p.currency}) — ${p.files.length} files`);
 }

@@ -36,6 +36,17 @@ export default defineSchema({
   // One row per uploaded file VERSION. Versions for the same
   // (project, template) are grouped client-side; the active one is
   // what the tool reads.
+  // Governed demand overrides — consensus adjustments on top of the
+  // baseline forecast, with a reason code and auto-expiry (for audit + FVA).
+  overrides: defineTable({
+    projectId: v.id("projects"),
+    family: v.string(),
+    pct: v.number(), // +/- % applied to the family's baseline demand
+    reason: v.string(),
+    expires: v.string(), // free text period, e.g. "Wk 26" / "Dec'23"
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
   // S&OP decision & action log — the artifact that turns the review
   // into committed actions (owner, status, due date) per project.
   decisions: defineTable({

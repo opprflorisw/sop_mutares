@@ -1,0 +1,5 @@
+customer,region,channel,segment
+RetailCo,DACH,B2C,Consumer
+AutoMfg,DACH,OEM,Automotive
+EnergyCo,France,B2B,Energy
+TelecomEU,EU,B2B,Telecom

@@ -186,6 +186,16 @@ type SeedFile = {
   coverage?: { start: string; end: string; missing: string[] };
 };
 
+const seedFile = v.object({
+  templateId: v.string(),
+  fileName: v.string(),
+  content: v.string(),
+  rows: v.number(),
+  status: fileStatus,
+  issues: v.array(v.string()),
+  coverage: v.optional(coverage),
+});
+
 export const ensureSeed = mutation({
   args: {
     users: v.array(
@@ -196,26 +206,18 @@ export const ensureSeed = mutation({
         password: v.string(),
       })
     ),
-    project: v.object({
-      name: v.string(),
-      industry: v.string(),
-      factory: v.string(),
-      description: v.string(),
-      currency: v.string(),
-    }),
-    files: v.array(
+    projects: v.array(
       v.object({
-        templateId: v.string(),
-        fileName: v.string(),
-        content: v.string(),
-        rows: v.number(),
-        status: fileStatus,
-        issues: v.array(v.string()),
-        coverage: v.optional(coverage),
+        name: v.string(),
+        industry: v.string(),
+        factory: v.string(),
+        description: v.string(),
+        currency: v.string(),
+        files: v.array(seedFile),
       })
     ),
   },
-  handler: async (ctx, { users, project, files }) => {
+  handler: async (ctx, { users, projects }) => {
     // users — insert any missing by email
     for (const u of users) {
       const email = u.email.trim().toLowerCase();
@@ -225,35 +227,25 @@ export const ensureSeed = mutation({
         .first();
       if (!exists) {
         await ctx.db.insert("users", {
-          name: u.name,
-          email,
-          role: u.role,
-          passwordHash: u.password,
-          createdAt: 0,
+          name: u.name, email, role: u.role, passwordHash: u.password, createdAt: 0,
         });
       }
     }
 
-    // project — only if none exist yet
-    const anyProject = await ctx.db.query("projects").first();
-    if (!anyProject) {
+    // each project — insert (with files) only if none with that name exists
+    const existing = await ctx.db.query("projects").collect();
+    const names = new Set(existing.map((p) => p.name));
+    for (const proj of projects) {
+      if (names.has(proj.name)) continue;
       const projectId: Id<"projects"> = await ctx.db.insert("projects", {
-        ...project,
-        createdAt: 0,
+        name: proj.name, industry: proj.industry, factory: proj.factory,
+        description: proj.description, currency: proj.currency, createdAt: 0,
       });
-      for (const f of files as SeedFile[]) {
+      for (const f of proj.files as SeedFile[]) {
         await ctx.db.insert("projectFiles", {
-          projectId,
-          templateId: f.templateId,
-          version: 1,
-          fileName: f.fileName,
-          rows: f.rows,
-          status: f.status,
-          issues: f.issues,
-          coverage: f.coverage,
-          content: f.content,
-          active: true,
-          uploadedAt: 0,
+          projectId, templateId: f.templateId, version: 1, fileName: f.fileName,
+          rows: f.rows, status: f.status, issues: f.issues, coverage: f.coverage,
+          content: f.content, active: true, uploadedAt: 0,
         });
       }
     }
