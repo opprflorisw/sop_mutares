@@ -19,20 +19,24 @@ export default async function handler(req, res) {
   const summary = body.summary || "";
 
   const prompt = `You are a supply-chain data-quality assistant for a Sales & Operations Planning tool used by Mutares portfolio companies.
-Given the automated data-check results below, write a concise, well-structured briefing for a non-technical operations manager. Use this exact markdown shape:
+From the automated data-check results below, write a short briefing for a non-technical operations manager.
 
-**Verdict:** one sentence — is the data ready to plan, and the headline reason.
+Begin your reply with this exact line and nothing before it:
+**Verdict:** <one sentence: is the data ready to plan, and the headline reason>
 
+Then include these sections (omit a section if it has no items):
 ## What to fix first
-- bullets for blockers (missing required files, invalid files). For each, say the business impact in plain words (e.g. "without sales history the tool can't measure forecast accuracy"). If none, write "- Nothing blocking."
-
+- one bullet per blocker (missing required file / invalid file), each stating the plain-language business impact.
 ## Worth tightening
-- bullets for warnings (time pockets / gaps, cross-file mismatches). Explain why each matters. If none, omit this section.
-
+- one bullet per warning (time pocket / gap / cross-file mismatch), each saying why it matters.
 ## Recommended next step
 - one or two concrete actions.
 
-Rules: under 160 words. Bold key terms with **. Do NOT invent issues not present in the results. Be specific with the numbers/periods given.
+Style rules:
+- Keep it brief and skimmable.
+- Use plain prose; do NOT annotate with word counts or meta commentary.
+- Do NOT put ** around plain numbers or dates.
+- Only discuss issues that appear in the results; do not invent any.
 
 DATA-CHECK RESULTS:
 ${summary}`;
@@ -45,7 +49,7 @@ ${summary}`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
+          generationConfig: { temperature: 0.3, maxOutputTokens: 700 },
         }),
       }
     );
