@@ -1,0 +1,5 @@
+plant,name,location,capacity_minutes,target_inv_days
+MTY,Monterrey,Monterrey, MX,57600,35
+SLP,San Luis Potosí,San Luis Potosí, MX,57600,35
+TOL,Toluca,Toluca, MX,28800,35
+QRO,Querétaro,Querétaro, MX,25200,35

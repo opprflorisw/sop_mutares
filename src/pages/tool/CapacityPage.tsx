@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Card, CardTitle, KpiTile, Tag } from "../../components/ui";
 import { PageHeader, NoData } from "./OverviewPage";
 import { useProjectData, PLANNED_CAPACITY_PCT } from "../../lib/projectData";
+import { C } from "../../lib/colors";
+import { FilterScope, FilterMenu, ResetFiltersButton, useWidgetFilter } from "../../components/widgetFilters";
 
 function heat(v: number) {
   if (v >= 100) return "bg-[#FCEBEB] text-[#A32D2D]";
@@ -16,14 +18,30 @@ function rag(v: number): "good" | "warn" | "bad" {
 
 export default function CapacityPage() {
   const d = useProjectData();
-  const [pct, setPct] = useState(Math.round(PLANNED_CAPACITY_PCT * 100));
   if (!d.hasData) return <NoData />;
+  return (
+    <FilterScope>
+      <CapacityBody />
+    </FilterScope>
+  );
+}
+
+function CapacityBody() {
+  const d = useProjectData();
+  const [pct, setPct] = useState(Math.round(PLANNED_CAPACITY_PCT * 100));
+
+  const lineFilter = useWidgetFilter(
+    "cp-lines",
+    d.capacityLines.map((l) => ({ key: `${l.plant}|${l.line}`, label: `${l.line} · ${l.plant}`, color: l.color }))
+  );
 
   // Re-derive planned utilisation against the user-chosen planning %.
-  const lines = d.capacityLines.map((l) => {
-    const plannedMin = l.availableMin * (pct / 100);
-    return { ...l, plannedMin, plannedUtil: plannedMin ? (l.requiredMin / plannedMin) * 100 : 0 };
-  });
+  const lines = d.capacityLines
+    .filter((l) => !lineFilter.isHidden(`${l.plant}|${l.line}`))
+    .map((l) => {
+      const plannedMin = l.availableMin * (pct / 100);
+      return { ...l, plannedMin, plannedUtil: plannedMin ? (l.requiredMin / plannedMin) * 100 : 0 };
+    });
   const overPlanned = lines.filter((l) => l.plannedUtil >= 100);
   const overAvail = lines.filter((l) => l.overload);
   const avgPlanned = lines.length ? lines.reduce((s, l) => s + l.plannedUtil, 0) / lines.length : 0;
@@ -32,7 +50,10 @@ export default function CapacityPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Capacity" subtitle="RCCP · available vs planned demonstrated capacity · the bottleneck" />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader title="Capacity" subtitle="RCCP · available vs planned demonstrated capacity · the bottleneck" />
+        <ResetFiltersButton />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile label="Util. vs planned" value={`${avgPlanned.toFixed(0)}%`} delta={`@ ${pct}% planning level`} deltaKind={rag(avgPlanned) === "bad" ? "down" : rag(avgPlanned) === "warn" ? "warn" : "up"} />
@@ -44,11 +65,14 @@ export default function CapacityPage() {
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-[13px] font-semibold">Line utilisation — required load vs capacity (latest period)</h3>
-          <label className="flex items-center gap-2 text-[11px] text-[var(--color-ink-2)]">
-            Planning level
-            <input type="range" min={50} max={100} step={5} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="w-28 accent-[var(--color-brand-600)]" />
-            <span className="w-9 font-semibold text-[var(--color-ink)]">{pct}%</span>
-          </label>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-[11px] text-[var(--color-ink-2)]">
+              Planning level
+              <input type="range" min={50} max={100} step={5} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="w-28 accent-[var(--color-brand-600)]" />
+              <span className="w-9 font-semibold text-[var(--color-ink)]">{pct}%</span>
+            </label>
+            {d.capacityLines.length > 1 && <FilterMenu filter={lineFilter} label="Lines" />}
+          </div>
         </div>
         <p className="-mt-1 mb-3 text-[11px] text-[var(--color-ink-3)]">
           Bars show load vs <strong>planned</strong> available demonstrated capacity ({pct}% of the MAC). The grey tick marks the <strong>available</strong> (MAC) line — the absolute ceiling.
@@ -67,7 +91,7 @@ export default function CapacityPage() {
                   <div className="text-[10px] text-[var(--color-ink-3)]">{l.plant}</div>
                 </div>
                 <div className="relative h-3.5 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
-                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, (l.plannedUtil / frameMax) * 100)}%`, background: tone === "bad" ? "#E24B4A" : tone === "warn" ? "#EF9F27" : l.color }} />
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, (l.plannedUtil / frameMax) * 100)}%`, background: tone === "bad" ? C.bad : tone === "warn" ? C.warn : l.color }} />
                   {macTick <= 100 && <div className="absolute top-[-2px] bottom-[-2px] w-px bg-[var(--color-ink-3)]" style={{ left: `${macTick}%` }} title="Available (MAC) limit" />}
                 </div>
                 <span className={`w-12 text-right text-[12px] font-semibold ${tone === "bad" ? "text-[var(--color-bad)]" : tone === "warn" ? "text-[var(--color-warn)]" : "text-[var(--color-ink)]"}`}>{l.plannedUtil.toFixed(0)}%</span>
@@ -75,6 +99,7 @@ export default function CapacityPage() {
               </div>
             );
           })}
+          {lines.length === 0 && <div className="py-4 text-center text-[12px] text-[var(--color-ink-3)]">All lines hidden — adjust the filter to show capacity.</div>}
         </div>
         {overPlanned.length > 0 && spare && (
           <p className="mt-3 text-[11px] text-[var(--color-ink-3)]">
@@ -87,7 +112,7 @@ export default function CapacityPage() {
 
       {d.capacitySchedule.rows.length > 0 && (
         <Card>
-          <CardTitle>Production schedule — load % by line × period</CardTitle>
+          <CardTitle right={d.capacityLines.length > 1 ? <FilterMenu filter={lineFilter} label="Lines" /> : undefined}>Production schedule — load % by line × period</CardTitle>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
               <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
@@ -99,7 +124,7 @@ export default function CapacityPage() {
                 </tr>
               </thead>
               <tbody>
-                {d.capacitySchedule.rows.map((row) => (
+                {d.capacitySchedule.rows.filter((row) => !lineFilter.isHidden(`${row.plant}|${row.line}`)).map((row) => (
                   <tr key={`${row.plant}-${row.line}`} className="border-t border-[var(--color-line)]">
                     <td className="py-1.5 pr-3 font-medium">{row.line}<span className="ml-1 text-[10px] text-[var(--color-ink-3)]">{row.plant}</span></td>
                     {row.util.map((v, i) => (

@@ -44,6 +44,7 @@ export type Project = {
   industry: string;
   factory: string;
   description: string;
+  background?: string;
   currency: string;
   createdAt: number;
   files: ProjectFile[];
@@ -104,6 +105,7 @@ type ProjectsContextValue = {
     industry: string;
     factory: string;
     description: string;
+    background?: string;
     currency: string;
   }) => Promise<string>;
   deleteProject: (id: string) => Promise<void>;

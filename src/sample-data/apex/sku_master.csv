@@ -1,0 +1,11 @@
+sku,description,family,uom,plant,std_cost,price
+RC-EV1,Regen Caliper EV Front,EV Regen Calipers,pcs,MTY,96,168
+RC-EV2,Regen Caliper EV Rear,EV Regen Calipers,pcs,MTY,88,152
+DP-100,Disc Pad Standard,Disc Brake Pads,pcs,SLP,11,19
+DP-140,Disc Pad Ceramic,Disc Brake Pads,pcs,SLP,16,28
+DP-160,Disc Pad HD Fleet,Disc Brake Pads,pcs,SLP,21,34
+DR-200,Drum Brake 9in,Drum Brakes Legacy,pcs,TOL,14,23
+DR-240,Drum Brake 10in,Drum Brakes Legacy,pcs,TOL,17,27
+DR-900,Drum Shoe (discontinued),Drum Brakes Legacy,pcs,TOL,9,16
+HA-300,Brake Master Cylinder,Hydraulic Actuators,pcs,QRO,31,52
+HA-360,Hydraulic Booster,Hydraulic Actuators,pcs,QRO,44,74

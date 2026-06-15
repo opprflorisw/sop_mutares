@@ -1,0 +1,4 @@
+supplier,component,lead_time_days,reliability,moq
+SUP-CAST,PUMP-CAST,24,90,200
+SUP-MOT,VAC-MOTOR,32,86,50
+SUP-SEAL,SEAL-SET,10,98,1000

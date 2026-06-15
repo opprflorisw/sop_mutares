@@ -6,22 +6,47 @@ import { Card, CardTitle, KpiTile, Tag } from "../../components/ui";
 import { PageHeader, NoData } from "./OverviewPage";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
 import { mitigationsFor } from "../../lib/mitigations";
+import { C, TOOLTIP_STYLE } from "../../lib/colors";
+import { FilterScope, FilterMenu, ResetFiltersButton, useWidgetFilter } from "../../components/widgetFilters";
 
 const SEV = { critical: "bad", high: "warn", medium: "info" } as const;
 
 export default function SupplyPage() {
   const d = useProjectData();
-  const [openGap, setOpenGap] = useState<string | null>(null);
   if (!d.hasData) return <NoData />;
-  const constrained = d.families.filter((f) => f.gapUnits > 0);
+  return (
+    <FilterScope>
+      <SupplyBody />
+    </FilterScope>
+  );
+}
 
-  const totalDemand = d.families.reduce((s, f) => s + f.demandValue, 0);
-  const totalSupply = d.families.reduce((s, f) => s + f.supplyValue, 0);
-  const invChart = d.plants.map((p) => ({ name: p.name, rm: p.rm, wip: p.wip, fg: p.fg }));
+function SupplyBody() {
+  const d = useProjectData();
+  const [openGap, setOpenGap] = useState<string | null>(null);
+
+  const famFilter = useWidgetFilter("sp-fam", d.families.map((f) => ({ key: f.family, label: f.family, color: f.color })));
+  const plantFilter = useWidgetFilter("sp-plant", d.plants.map((p) => ({ key: p.code, label: p.name, color: p.color })));
+  const mrpOptions = [...new Set(d.materialAlerts.map((a) => a.severity))].map((s) => ({ key: s, label: s[0].toUpperCase() + s.slice(1) }));
+  const mrpFilter = useWidgetFilter("sp-mrp", mrpOptions);
+
+  const families = d.families.filter((f) => !famFilter.isHidden(f.family));
+  const plants = d.plants.filter((p) => !plantFilter.isHidden(p.code));
+  const materialAlerts = d.materialAlerts.filter((a) => !mrpFilter.isHidden(a.severity));
+  const slob = d.slob.filter((s) => !plantFilter.isHidden(s.plant));
+  const slobValue = slob.reduce((s, x) => s + x.value, 0);
+  const constrained = families.filter((f) => f.gapUnits > 0);
+
+  const totalDemand = families.reduce((s, f) => s + f.demandValue, 0);
+  const totalSupply = families.reduce((s, f) => s + f.supplyValue, 0);
+  const invChart = plants.map((p) => ({ name: p.name, rm: p.rm, wip: p.wip, fg: p.fg }));
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Supply" subtitle="Constrained plan · the demand-supply gap · MRP · inventory" />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader title="Supply" subtitle="Constrained plan · the demand-supply gap · MRP · inventory" />
+        <ResetFiltersButton />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile label="Demand (unconstr.)" value={fmtMoney(totalDemand, d.currency)} hint="What the market wants" />
@@ -31,7 +56,7 @@ export default function SupplyPage() {
       </div>
 
       <Card>
-        <CardTitle right={<Tag tone="info">the gap drives the decision</Tag>}>Demand vs supply gap — by product family</CardTitle>
+        <CardTitle right={<div className="flex items-center gap-1.5"><Tag tone="info">the gap drives the decision</Tag><FilterMenu filter={famFilter} label="Product families" /></div>}>Demand vs supply gap — by product family</CardTitle>
         <table className="w-full text-[12px]">
           <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
             <tr>
@@ -45,7 +70,7 @@ export default function SupplyPage() {
             </tr>
           </thead>
           <tbody>
-            {d.families.map((f) => {
+            {families.map((f) => {
               const constrained = f.gapUnits > 0;
               return (
                 <tr key={f.family} className="border-t border-[var(--color-line)]">
@@ -135,7 +160,7 @@ export default function SupplyPage() {
                     <div key={p.m} className="flex items-center gap-3">
                       <span className="w-16 shrink-0 text-[11px] text-[var(--color-ink-2)]">{p.m.slice(2)}{!p.planned && <span className="ml-1 text-[var(--color-ink-3)]">now</span>}</span>
                       <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
-                        <div className="h-full rounded-full" style={{ width: `${w}%`, background: over ? "#EF9F27" : "#1D9E75", opacity: p.planned ? 0.85 : 1 }} />
+                        <div className="h-full rounded-full" style={{ width: `${w}%`, background: over ? C.warn : C.good, opacity: p.planned ? 0.85 : 1 }} />
                       </div>
                       <span className={`w-12 text-right text-[12px] font-semibold ${over ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{p.days.toFixed(0)}d</span>
                       <span className="w-14 text-right text-[11px] text-[var(--color-ink-3)]">{fmtMoney(p.value, d.currency)}</span>
@@ -151,10 +176,14 @@ export default function SupplyPage() {
             <Card pad={false}>
               <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
                 <span className="text-[13px] font-semibold">Slow-moving & obsolete (SLOB)</span>
-                <Tag tone="warn">{fmtMoney(d.kpis.slobValue, d.currency)} tied up</Tag>
+                <div className="flex items-center gap-1.5">
+                  <Tag tone="warn">{fmtMoney(slobValue, d.currency)} tied up</Tag>
+                  {d.plants.length > 1 && <FilterMenu filter={plantFilter} label="Plants" />}
+                </div>
               </div>
               <div className="max-h-[220px] divide-y divide-[var(--color-line)] overflow-y-auto">
-                {d.slob.slice(0, 8).map((s) => (
+                {slob.length === 0 && <div className="px-4 py-3 text-[12px] text-[var(--color-ink-3)]">No SLOB at the selected plants.</div>}
+                {slob.slice(0, 8).map((s) => (
                   <div key={`${s.sku}-${s.plant}`} className="flex items-center gap-3 px-4 py-2 text-[12px]">
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{s.sku}</span>
@@ -180,10 +209,13 @@ export default function SupplyPage() {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
         <Card pad={false}>
-          <div className="border-b border-[var(--color-line)] px-4 py-3 text-[13px] font-semibold">MRP — material & supplier risk</div>
+          <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
+            <span className="text-[13px] font-semibold">MRP — material & supplier risk</span>
+            {mrpOptions.length > 1 && <FilterMenu filter={mrpFilter} label="Severity" />}
+          </div>
           <div className="divide-y divide-[var(--color-line)]">
-            {d.materialAlerts.length === 0 && <div className="px-4 py-3 text-[12px] text-[var(--color-ink-3)]">No supplier risks flagged.</div>}
-            {d.materialAlerts.map((a) => (
+            {materialAlerts.length === 0 && <div className="px-4 py-3 text-[12px] text-[var(--color-ink-3)]">{d.materialAlerts.length === 0 ? "No supplier risks flagged." : "No alerts match the current filter."}</div>}
+            {materialAlerts.map((a) => (
               <div key={a.material} className="px-4 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] font-semibold">{a.material}</span>
@@ -196,23 +228,23 @@ export default function SupplyPage() {
         </Card>
 
         <Card>
-          <CardTitle>Inventory — RM / WIP / FG by plant</CardTitle>
+          <CardTitle right={d.plants.length > 1 ? <FilterMenu filter={plantFilter} label="Plants" /> : undefined}>Inventory — RM / WIP / FG by plant</CardTitle>
           <div className="h-[160px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={invChart} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={46} />
-                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={46} />
+                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Bar dataKey="rm" name="RM" stackId="a" fill="#185FA5" />
-                <Bar dataKey="wip" name="WIP" stackId="a" fill="#EF9F27" />
-                <Bar dataKey="fg" name="FG" stackId="a" fill="#3B9B3B" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="rm" name="RM" stackId="a" fill={C.rm} />
+                <Bar dataKey="wip" name="WIP" stackId="a" fill={C.wip} />
+                <Bar dataKey="fg" name="FG" stackId="a" fill={C.fg} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--color-ink-2)]">
-            {d.plants.map((p) => (
+            {plants.map((p) => (
               <span key={p.code}>{p.name}: <strong>{p.invDays.toFixed(1)}d</strong>{p.invDays > 40 && <span className="text-[var(--color-bad)]"> ⚠</span>}</span>
             ))}
           </div>

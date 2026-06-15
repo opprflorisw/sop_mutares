@@ -66,6 +66,7 @@ export const listWithFiles = query({
         industry: p.industry,
         factory: p.factory,
         description: p.description,
+        background: p.background ?? "",
         currency: p.currency,
         createdAt: p.createdAt,
         files: grouped,
@@ -81,6 +82,7 @@ export const create = mutation({
     industry: v.string(),
     factory: v.string(),
     description: v.string(),
+    background: v.optional(v.string()),
     currency: v.string(),
   },
   handler: async (ctx, args) =>
@@ -212,6 +214,7 @@ export const ensureSeed = mutation({
         industry: v.string(),
         factory: v.string(),
         description: v.string(),
+        background: v.optional(v.string()),
         currency: v.string(),
         files: v.array(seedFile),
       })
@@ -232,14 +235,22 @@ export const ensureSeed = mutation({
       }
     }
 
-    // each project — insert (with files) only if none with that name exists
+    // each project — insert (with files) only if none with that name exists.
+    // For projects that already exist, refresh the narrative (description +
+    // background) in place without touching their files or related data.
     const existing = await ctx.db.query("projects").collect();
-    const names = new Set(existing.map((p) => p.name));
+    const byName = new Map(existing.map((p) => [p.name, p]));
     for (const proj of projects) {
-      if (names.has(proj.name)) continue;
+      const found = byName.get(proj.name);
+      if (found) {
+        if (found.description !== proj.description || found.background !== proj.background) {
+          await ctx.db.patch(found._id, { description: proj.description, background: proj.background });
+        }
+        continue;
+      }
       const projectId: Id<"projects"> = await ctx.db.insert("projects", {
         name: proj.name, industry: proj.industry, factory: proj.factory,
-        description: proj.description, currency: proj.currency, createdAt: 0,
+        description: proj.description, background: proj.background, currency: proj.currency, createdAt: 0,
       });
       for (const f of proj.files as SeedFile[]) {
         await ctx.db.insert("projectFiles", {

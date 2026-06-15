@@ -3,6 +3,9 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { SEALINGS_CSV } from "../lib/sampleSealings";
 import { ELECTROTECH_CSV } from "../lib/sampleElectrotech";
+import { APEX_CSV } from "../lib/sampleApex";
+import { HELIOS_CSV } from "../lib/sampleHelios";
+import { SCENARIO_BACKGROUNDS } from "../lib/scenarioBackgrounds";
 import { getTemplate } from "../lib/templates";
 import { analyzeCsv } from "../lib/projects";
 
@@ -36,6 +39,7 @@ export default function SeedGate() {
         industry: "Automotive (Sealings)",
         factory: "5 plants · Bawal, Manesar, Chennai, Sanand, Sahibabad",
         description: "Automotive sealing systems for Indian OEMs (TML, Maruti, Tata, M&M, Nissan, VW). Dec'22 ICP baseline ₹35.56 Cr across 5 plants.",
+        background: SCENARIO_BACKGROUNDS["SFC India — Sealings"],
         currency: "INR",
         files: buildFiles(SEALINGS_CSV),
       },
@@ -44,8 +48,27 @@ export default function SeedGate() {
         industry: "Electronics manufacturing",
         factory: "3 plants · Lyon, Karlsruhe, Berlin",
         description: "Connected-device electronics maker (smart-home hubs, industrial controllers, power modules, sensors) for EU B2B/B2C customers. Capacitor supply from Shenzhen is a key risk.",
+        background: SCENARIO_BACKGROUNDS["ElectroTech Industries — EU"],
         currency: "EUR",
         files: buildFiles(ELECTROTECH_CSV),
+      },
+      {
+        name: "Apex Brake Systems — México",
+        industry: "Automotive (Braking)",
+        factory: "4 plants · Monterrey, San Luis Potosí, Toluca, Querétaro",
+        description: "Tier-1 brake maker mid-turnaround. EV caliper demand is outrunning Monterrey's capacity while a declining drum business piles up obsolete stock in Toluca.",
+        background: SCENARIO_BACKGROUNDS["Apex Brake Systems — México"],
+        currency: "USD",
+        files: buildFiles(APEX_CSV),
+      },
+      {
+        name: "Helios Pumps & Compressors — Italy",
+        industry: "Industrial equipment",
+        factory: "3 plants · Milan, Turin, Bologna",
+        description: "Pumps & compressors maker with a wide margin spread — the high-revenue pumps earn ~16% while the under-forecast vacuum line earns ~45%.",
+        background: SCENARIO_BACKGROUNDS["Helios Pumps & Compressors — Italy"],
+        currency: "EUR",
+        files: buildFiles(HELIOS_CSV),
       },
     ];
 

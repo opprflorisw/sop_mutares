@@ -20,7 +20,13 @@ export default function CsvModal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Lock the page behind the modal so scrolling stays inside it.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [onClose]);
 
   const { headers, rows } = useMemo(() => parseCsv(version.content), [version.content]);
@@ -34,7 +40,7 @@ export default function CsvModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
@@ -75,7 +81,7 @@ export default function CsvModal({
         </div>
 
         {/* table */}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <table className="w-full border-collapse text-[12px]">
             <thead className="sticky top-0 z-10">
               <tr>
@@ -83,17 +89,21 @@ export default function CsvModal({
                 {headers.map((h) => {
                   const isReq = required.has(h);
                   const isUnknown = !known.has(h);
+                  // The required / not-in-template signal lives in a coloured rail
+                  // ABOVE the column name (not crammed next to it), so the header
+                  // reads as the clean column name with a clear status stripe.
+                  const rail = isReq ? "var(--color-brand-500)" : isUnknown ? "#D98585" : "transparent";
                   return (
                     <th
                       key={h}
-                      className={`border-b border-r border-[var(--color-line)] px-3 py-1.5 text-left font-semibold ${
+                      className={`relative border-b border-r border-[var(--color-line)] px-3 pb-1.5 pt-2 text-left align-bottom font-semibold ${
                         isReq ? "bg-[var(--color-brand-100)] text-[var(--color-brand-800)]"
                         : isUnknown ? "bg-[#FCEBEB] text-[#A32D2D]"
                         : "bg-[var(--color-surface-2)] text-[var(--color-ink)]"
                       }`}
                     >
+                      <span className="absolute inset-x-0 top-0 h-1" style={{ background: rail }} />
                       <span className="font-mono text-[11px]">{h}</span>
-                      {isReq && <span className="ml-1 align-middle text-[9px] font-normal text-[var(--color-brand-600)]">req</span>}
                     </th>
                   );
                 })}

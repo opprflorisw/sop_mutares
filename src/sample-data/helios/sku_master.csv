@@ -1,0 +1,9 @@
+sku,description,family,uom,plant,std_cost,price
+CP-100,Centrifugal Pump 50m³,Centrifugal Pumps,pcs,MIL,1980,2400
+CP-140,Centrifugal Pump 120m³,Centrifugal Pumps,pcs,MIL,2700,3200
+VC-200,Vacuum Compressor V2,Vacuum Compressors,pcs,TUR,4800,8800
+VC-240,Vacuum Compressor V4,Vacuum Compressors,pcs,TUR,6600,12000
+SP-300,Seal & Bearing Kit,Spare Parts Kits,pcs,BOL,150,320
+SP-340,Impeller Repair Kit,Spare Parts Kits,pcs,BOL,130,280
+SPK-OLD,Legacy Seal Kit (discontinued),Spare Parts Kits,pcs,BOL,120,250
+BS-400,Pressure Booster Set,Booster Sets,pcs,BOL,3600,5400

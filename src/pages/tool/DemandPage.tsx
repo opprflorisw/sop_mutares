@@ -7,6 +7,8 @@ import { Card, CardTitle, KpiTile, Tag } from "../../components/ui";
 import { PageHeader, NoData } from "./OverviewPage";
 import { useProjectData, fmtMoney } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
+import { C, TOOLTIP_STYLE } from "../../lib/colors";
+import { FilterScope, FilterMenu, ResetFiltersButton, useWidgetFilter } from "../../components/widgetFilters";
 import ConsensusOverridesCard from "../../components/ConsensusOverridesCard";
 
 const SCENARIOS = [
@@ -14,13 +16,32 @@ const SCENARIOS = [
   { label: "Base", delta: 0, tone: "info" as const },
   { label: "Upside", delta: 10, tone: "good" as const },
 ];
+const ACC_STATUS = [
+  { key: "good", label: "Approved (good)" },
+  { key: "warn", label: "Pending (drift)" },
+  { key: "bad", label: "Override (high error)" },
+];
 
 export default function DemandPage() {
+  const d = useProjectData();
+  if (!d.hasData) return <NoData />;
+  return (
+    <FilterScope>
+      <DemandBody />
+    </FilterScope>
+  );
+}
+
+function DemandBody() {
   const d = useProjectData();
   const { activeProject } = useProjects();
   const [growth, setGrowth] = useState(0);
   const [factor, setFactor] = useState(1);
-  if (!d.hasData) return <NoData />;
+
+  const custFilter = useWidgetFilter("dm-cust", d.customerMix.map((c) => ({ key: c.name, label: c.name, color: c.color })));
+  const accFilter = useWidgetFilter("dm-acc", ACC_STATUS);
+  const customerMix = d.customerMix.filter((c) => !custFilter.isHidden(c.name));
+  const skuAccuracy = d.skuAccuracy.filter((s) => !accFilter.isHidden(s.status));
 
   const series = d.demandSeries.map((p) => {
     const adj = p.actual ? 1 : (1 + growth / 100) * factor;
@@ -42,7 +63,10 @@ export default function DemandPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Demand" subtitle="ICP — the agreed consensus plan · revenue & margin · forecast accuracy & bias" />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader title="Demand" subtitle="ICP — the agreed consensus plan · revenue & margin · forecast accuracy & bias" />
+        <ResetFiltersButton />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile label="12m revenue (ICP)" value={fmtMoney(totalRev, d.currency)} delta={`${growth >= 0 ? "+" : ""}${growth}% lever`} deltaKind={growth >= 0 ? "up" : "down"} />
@@ -57,14 +81,14 @@ export default function DemandPage() {
           <div className="h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={series} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
-                <XAxis dataKey="m" tick={{ fontSize: 8, fill: "#8a929e" }} tickLine={false} axisLine={false} interval={1} />
-                <YAxis tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
-                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="m" tick={{ fontSize: 8, fill: C.axis }} tickLine={false} axisLine={false} interval={1} />
+                <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={TOOLTIP_STYLE} />
                 <Bar dataKey="rev" name="Revenue" radius={[3, 3, 0, 0]}>
-                  {series.map((p, i) => <Cell key={i} fill={p.actual ? "#85B7EB" : "#378ADD"} />)}
+                  {series.map((p, i) => <Cell key={i} fill={p.actual ? C.demand : C.forecast} />)}
                 </Bar>
-                <Line type="monotone" dataKey="cm" name="CM" stroke="#1D9E75" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="cm" name="CM" stroke={C.good} strokeWidth={2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -141,14 +165,14 @@ export default function DemandPage() {
           <div className="h-[190px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={d.forecastLag.map((p) => ({ ...p, m: p.m.slice(2) }))} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
-                <XAxis dataKey="m" tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: "#8a929e" }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
-                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="m" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+                <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Bar dataKey="actual" name="Actual" fill="#85B7EB" radius={[3, 3, 0, 0]} />
-                <Line type="monotone" dataKey="lag1" name="Plan (lag-1)" stroke="#185FA5" strokeWidth={2} dot={{ r: 2 }} />
-                <Line type="monotone" dataKey="lag2" name="Plan (lag-2)" stroke="#EF9F27" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 2 }} />
+                <Bar dataKey="actual" name="Actual" fill={C.demand} radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="lag1" name="Plan (lag-1)" stroke={C.supply} strokeWidth={2} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="lag2" name="Plan (lag-2)" stroke={C.warn} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 2 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -158,7 +182,7 @@ export default function DemandPage() {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.5fr_1fr]">
         <Card>
-          <CardTitle>Forecast accuracy & BIAS — SKU level (vs prior year)</CardTitle>
+          <CardTitle right={<FilterMenu filter={accFilter} label="Accuracy status" />}>Forecast accuracy & BIAS — SKU level (vs prior year)</CardTitle>
           <table className="w-full text-[12px]">
             <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
               <tr>
@@ -170,7 +194,7 @@ export default function DemandPage() {
               </tr>
             </thead>
             <tbody>
-              {d.skuAccuracy.map((s) => (
+              {skuAccuracy.map((s) => (
                 <tr key={s.sku} className="border-t border-[var(--color-line)]">
                   <td className="py-1.5 font-medium">{s.sku}</td>
                   <td className="py-1.5 text-[var(--color-ink-2)]">{s.desc}</td>
@@ -179,24 +203,27 @@ export default function DemandPage() {
                   <td className="py-1.5"><Tag tone={s.status === "good" ? "good" : s.status === "warn" ? "warn" : "bad"}>{s.state}</Tag></td>
                 </tr>
               ))}
+              {skuAccuracy.length === 0 && (
+                <tr className="border-t border-[var(--color-line)]"><td colSpan={5} className="py-3 text-center text-[var(--color-ink-3)]">No SKUs match the current filter.</td></tr>
+              )}
             </tbody>
           </table>
         </Card>
 
         <Card>
-          <CardTitle>Customer demand mix</CardTitle>
+          <CardTitle right={<FilterMenu filter={custFilter} label="Customers" />}>Customer demand mix</CardTitle>
           <div className="h-[160px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={d.customerMix} dataKey="share" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={1}>
-                  {d.customerMix.map((c) => <Cell key={c.name} fill={c.color} />)}
+                <Pie data={customerMix} dataKey="share" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={1}>
+                  {customerMix.map((c) => <Cell key={c.name} fill={c.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e7eaee" }} />
+                <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} contentStyle={TOOLTIP_STYLE} />
               </PieChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-[var(--color-ink-2)]">
-            {d.customerMix.slice(0, 6).map((c) => (
+            {customerMix.slice(0, 6).map((c) => (
               <span key={c.name} className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm" style={{ background: c.color }} />
                 {c.name} {(c.share * 100).toFixed(0)}%

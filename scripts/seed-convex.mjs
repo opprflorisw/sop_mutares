@@ -27,10 +27,21 @@ const TIME_FIELDS = {
   inventory: "date",
   capacity: "date",
 };
-const TEMPLATE_IDS = [
+const BASE_TEMPLATE_IDS = [
   "sku_master", "customer_master", "plant_master", "sales_history",
   "demand_forecast", "bom", "inventory", "capacity",
 ];
+
+const BG = {
+  sealings:
+    "SFC Solutions India makes automotive sealing systems for Indian OEMs (TML, Maruti, Tata, M&M, Nissan, VW) across five plants. This is the real Mutares S&OP cadence: a monthly ICP (consensus plan) drives demand, an RCCP balances it against extrusion/mixing capacity, and the review pack tracks inventory, forecast accuracy & BIAS, and gap-closing actions. The Dec'22 baseline is ₹35.56 Cr. Watch the demand-vs-supply gap by family, forecast bias by SKU, and the inventory projection.",
+  electrotech:
+    "ElectroTech Industries builds connected devices (smart-home hubs, industrial controllers, power modules, sensors) for EU B2B/B2C customers from three plants. The Karlsruhe SMT line is the bottleneck, and a Shenzhen capacitor supplier with a long lead time and weak reliability is the key material risk. A whole month (Nov-2022) is deliberately missing from sales history — a data-quality gap to exercise the AI data check. Watch the capacity overload and the data-gap flag in the Data Manager.",
+  apex:
+    "Apex Brake Systems is a Tier-1 brake manufacturer in México, carved out of a larger group and now run as a standalone turnaround. The 2024 plan is dominated by one shock: a major EV customer (VoltAuto) has ramped regenerative-braking caliper orders far faster than Monterrey can build them — both CNC cells are already over 100%, so a chunk of that demand is unmet and at risk. Meanwhile the legacy Drum Brakes business in Toluca is shrinking, yet the team keeps over-forecasting it and has built a mountain of finished drums (including a fully discontinued shoe) — inventory days there are an order of magnitude above target. A single Asian supplier for the ABS chip used in the new calipers has a 40-day lead time and weak reliability, putting the whole EV ramp at risk. Watch: the EV gap and its costed options (Supply), the Monterrey overload (Capacity), the drum over-forecast (Demand), and the Toluca SLOB + supplier risk.",
+  helios:
+    "Helios Pumps & Compressors is an Italian industrial-equipment maker with three plants (Milan, Turin, Bologna). It's a classic mix-and-margin story: the big-volume Centrifugal Pumps line earns barely 16% contribution margin, while Vacuum Compressors (~45%) and Spare-Parts Kits (~53%) are far more profitable. Two things stand out this cycle. First, the only real supply gap sits on the low-margin pumps in Milan — so the question is whether it's even worth chasing. Second, the high-margin Vacuum Compressors in Turin are growing but being consistently under-forecast, leaving revenue and margin on the table; Turin also runs at ~99% of its planned capacity (though still under the physical ceiling), so any upside needs a capacity conversation. There's also a discontinued seal kit quietly tying up cash in Bologna, and the motor that feeds the profitable vacuum line comes from a single shaky supplier. Watch: contribution margin by family and the plan bridge (Demand), the dual-capacity view in Turin (Capacity), and SLOB + supplier risk (Supply).",
+};
 
 const SCENARIOS = [
   {
@@ -40,6 +51,7 @@ const SCENARIOS = [
       industry: "Automotive (Sealings)",
       factory: "5 plants · Bawal, Manesar, Chennai, Sanand, Sahibabad",
       description: "Automotive sealing systems for Indian OEMs (TML, Maruti, Tata, M&M, Nissan, VW). Dec'22 ICP baseline ₹35.56 Cr across 5 plants.",
+      background: BG.sealings,
       currency: "INR",
     },
   },
@@ -50,6 +62,31 @@ const SCENARIOS = [
       industry: "Electronics manufacturing",
       factory: "3 plants · Lyon, Karlsruhe, Berlin",
       description: "Connected-device electronics maker (smart-home hubs, industrial controllers, power modules, sensors) for EU B2B/B2C customers. Capacitor supply from Shenzhen is a key risk.",
+      background: BG.electrotech,
+      currency: "EUR",
+    },
+  },
+  {
+    dir: "apex",
+    withSupplier: true,
+    project: {
+      name: "Apex Brake Systems — México",
+      industry: "Automotive (Braking)",
+      factory: "4 plants · Monterrey, San Luis Potosí, Toluca, Querétaro",
+      description: "Tier-1 brake maker mid-turnaround. EV caliper demand is outrunning Monterrey's capacity while a declining drum business piles up obsolete stock in Toluca.",
+      background: BG.apex,
+      currency: "USD",
+    },
+  },
+  {
+    dir: "helios",
+    withSupplier: true,
+    project: {
+      name: "Helios Pumps & Compressors — Italy",
+      industry: "Industrial equipment",
+      factory: "3 plants · Milan, Turin, Bologna",
+      description: "Pumps & compressors maker with a wide margin spread — the high-revenue pumps earn ~16% while the under-forecast vacuum line earns ~45%.",
+      background: BG.helios,
       currency: "EUR",
     },
   },
@@ -100,7 +137,8 @@ function analyze(templateId, text) {
 }
 
 const projectsPayload = SCENARIOS.map((sc) => {
-  const files = TEMPLATE_IDS.map((templateId) => {
+  const templateIds = sc.withSupplier ? [...BASE_TEMPLATE_IDS, "supplier"] : BASE_TEMPLATE_IDS;
+  const files = templateIds.map((templateId) => {
     const content = readFileSync(join(root, "src", "sample-data", sc.dir, `${templateId}.csv`), "utf8");
     const a = analyze(templateId, content);
     return { templateId, fileName: `${templateId}.csv`, content, ...a };

@@ -29,6 +29,9 @@ export default defineSchema({
     industry: v.string(),
     factory: v.string(),
     description: v.string(),
+    // Longer scenario narrative shown on the Data Manager — the situation,
+    // what's interesting, and what to look for in the dashboard.
+    background: v.optional(v.string()),
     currency: v.string(),
     createdAt: v.number(),
   }),

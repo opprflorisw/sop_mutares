@@ -121,6 +121,7 @@ function NewProjectForm({
     industry: string;
     factory: string;
     description: string;
+    background: string;
     currency: string;
   }) => void;
 }) {
@@ -128,6 +129,7 @@ function NewProjectForm({
   const [industry, setIndustry] = useState("");
   const [factory, setFactory] = useState("");
   const [description, setDescription] = useState("");
+  const [background, setBackground] = useState("");
   const [currency, setCurrency] = useState("EUR");
 
   return (
@@ -136,7 +138,7 @@ function NewProjectForm({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onCreate({ name, industry, factory, description, currency });
+          onCreate({ name, industry, factory, description, background, currency });
         }}
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       >
@@ -158,8 +160,13 @@ function NewProjectForm({
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <Field label="Description">
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} className={`${inputCls} min-h-[64px]`} placeholder="Short background on the factory and planning context." />
+          <Field label="Description (one line)">
+            <input value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} placeholder="Short summary shown on the project card." />
+          </Field>
+        </div>
+        <div className="sm:col-span-2">
+          <Field label="Scenario background (optional)">
+            <textarea value={background} onChange={(e) => setBackground(e.target.value)} className={`${inputCls} min-h-[80px]`} placeholder="The situation, what's interesting, and what to look for in the dashboard. Shown on the Data Manager." />
           </Field>
         </div>
         <div className="flex gap-2 sm:col-span-2">
