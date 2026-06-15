@@ -36,6 +36,17 @@ export default defineSchema({
   // One row per uploaded file VERSION. Versions for the same
   // (project, template) are grouped client-side; the active one is
   // what the tool reads.
+  // S&OP decision & action log — the artifact that turns the review
+  // into committed actions (owner, status, due date) per project.
+  decisions: defineTable({
+    projectId: v.id("projects"),
+    title: v.string(),
+    owner: v.string(),
+    status: v.union(v.literal("open"), v.literal("in_progress"), v.literal("done")),
+    due: v.string(),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
   projectFiles: defineTable({
     projectId: v.id("projects"),
     templateId: v.string(),

@@ -8,6 +8,7 @@ import { IconFile } from "../../components/icons";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
 import ReportBuilderModal from "../../components/ReportBuilderModal";
+import DecisionsPanel from "../../components/DecisionsPanel";
 
 const NAV = [
   { to: "/tool/demand", emoji: "📈", title: "Demand", desc: "Unconstrained forecast, revenue, bias & variation" },
@@ -91,6 +92,8 @@ export default function OverviewPage() {
           </div>
         </Card>
       </div>
+
+      {activeProject && <DecisionsPanel projectId={activeProject.id} />}
 
       <Card>
         <CardTitle>The three core modules</CardTitle>
