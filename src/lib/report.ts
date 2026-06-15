@@ -9,7 +9,7 @@ import type { Project } from "./projects";
 // ============================================================
 
 export type WidgetKey =
-  | "kpis" | "gap" | "inventory" | "capacity" | "issues" | "accuracy" | "customers";
+  | "kpis" | "gap" | "inventory" | "capacity" | "issues" | "decisions" | "accuracy" | "customers";
 
 export const WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "kpis", label: "Executive KPIs" },
@@ -17,9 +17,12 @@ export const WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "inventory", label: "Inventory by plant" },
   { key: "capacity", label: "Capacity & overload" },
   { key: "issues", label: "Open issues" },
+  { key: "decisions", label: "Decisions & actions" },
   { key: "accuracy", label: "Forecast accuracy (SKU)" },
   { key: "customers", label: "Customer demand mix" },
 ];
+
+export type ReportDecision = { title: string; owner: string; status: string; due: string };
 
 export type ReportConfig = {
   companyName: string;
@@ -42,7 +45,8 @@ export function buildReportHtml(
   project: Project,
   d: ProjectData,
   cfg: ReportConfig,
-  generatedDate: string
+  generatedDate: string,
+  decisions: ReportDecision[] = []
 ): string {
   const c = d.currency;
   const W = cfg.widgets;
@@ -112,6 +116,16 @@ export function buildReportHtml(
       ? d.issues.map((i) => `<tr><td><span class="tag ${i.severity === "critical" ? "bad" : i.severity === "high" ? "warn" : "info"}">${i.severity}</span></td><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div></td><td class="r">${i.valueAtRisk > 0 ? fmtMoney(i.valueAtRisk * 1000, c) : "—"}</td></tr>`).join("")
       : `<tr><td colspan="3" class="muted">No open issues — plan is balanced.</td></tr>`;
     sections.push(section("Open issues", `<table><tbody>${rows}</tbody></table>`));
+  }
+
+  if (W.decisions) {
+    const tg: Record<string, string> = { open: "warn", in_progress: "info", done: "ok" };
+    const rows = decisions.length
+      ? decisions.map((x) => `<tr><td><span class="tag ${tg[x.status] || "info"}">${esc(x.status.replace("_", " "))}</span></td><td><b>${esc(x.title)}</b></td><td>${esc(x.owner)}</td><td>${esc(x.due)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="muted">No decisions logged.</td></tr>`;
+    sections.push(section("Decisions & actions", `<table>
+      <thead><tr><th>Status</th><th>Decision / action</th><th>Owner</th><th>Due</th></tr></thead>
+      <tbody>${rows}</tbody></table>`));
   }
 
   if (W.accuracy && d.skuAccuracy.length) {

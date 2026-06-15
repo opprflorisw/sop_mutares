@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Button, Tag } from "./ui";
 import { IconDownload, IconFile, IconSparkles } from "./icons";
 import { triggerDownload } from "../lib/csv";
@@ -38,6 +40,7 @@ export default function ReportBuilderModal({
 }) {
   const [cfg, setCfg] = useState<ReportConfig>(() => loadConfig(project));
   const logoInput = useRef<HTMLInputElement>(null);
+  const decisions = useQuery(api.decisions.list, { projectId: project.id as never }) ?? [];
 
   useEffect(() => {
     localStorage.setItem(KEY(project.id), JSON.stringify(cfg));
@@ -57,7 +60,7 @@ export default function ReportBuilderModal({
     reader.readAsDataURL(file);
   }
 
-  const html = () => buildReportHtml(project, data, cfg, new Date().toLocaleDateString());
+  const html = () => buildReportHtml(project, data, cfg, new Date().toLocaleDateString(), decisions);
 
   function downloadHtml() {
     triggerDownload(`${project.name.replace(/[^\w]+/g, "_")}_SOP_report.html`, html());
