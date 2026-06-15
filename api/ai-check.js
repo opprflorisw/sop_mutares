@@ -4,6 +4,31 @@
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
+const SYSTEM = `You are a data-quality assistant inside a Sales & Operations Planning tool for Mutares portfolio companies.
+You receive automated data-check results and reply with a short markdown briefing for a non-technical operations manager.
+Output ONLY the briefing — no preamble, no restating the instructions, no notes.
+
+Structure:
+**Verdict:** one sentence on whether the data is ready to plan and the headline reason.
+
+## What to fix first
+- one bullet per blocker (missing required file / invalid file) with its plain-language business impact
+
+## Worth tightening
+- one bullet per warning (time gap / cross-file mismatch) with why it matters
+
+## Recommended next step
+- one or two concrete actions
+
+Omit a section that has no items. Keep bullets short. Only discuss issues present in the results; never invent any.`;
+
+function clean(text) {
+  let t = text.trim();
+  const i = t.indexOf("**Verdict:**");
+  if (i > 0) t = t.slice(i); // drop any preamble before the verdict
+  return t.trim();
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -18,24 +43,6 @@ export default async function handler(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const summary = body.summary || "";
 
-  const prompt = `You summarize automated data-quality check results for a non-technical operations manager using a Sales & Operations Planning tool. Reply with ONLY the briefing (no preamble, no notes about your instructions), following this format exactly:
-
-**Verdict:** The data is ready to plan, with two minor data-quality items to tidy up.
-
-## What to fix first
-- A missing month of sales history would distort year-over-year accuracy — but no blockers here.
-
-## Worth tightening
-- Sales history is missing March 2023, which weakens trend and seasonality reads for that period.
-
-## Recommended next step
-- Upload the missing March 2023 sales rows, then re-run the check.
-
-Now write the briefing for these results. Only mention issues that appear below; if there are no blockers, say so and omit empty sections. Keep bullets short and concrete.
-
-RESULTS:
-${summary}`;
-
   try {
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
@@ -43,7 +50,8 @@ ${summary}`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: SYSTEM }] },
+          contents: [{ role: "user", parts: [{ text: `Data-check results:\n\n${summary}` }] }],
           generationConfig: { temperature: 0.3, maxOutputTokens: 700 },
         }),
       }
@@ -53,9 +61,8 @@ ${summary}`;
       return;
     }
     const data = await r.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
-    res.status(200).json({ text });
+    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+    res.status(200).json({ text: clean(text) });
   } catch (e) {
     res.status(502).json({ error: String(e) });
   }
