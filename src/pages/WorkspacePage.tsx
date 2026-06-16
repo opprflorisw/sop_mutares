@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProjects } from "../lib/projects";
+import { useProjects, type Project } from "../lib/projects";
 import { runDataCheck } from "../lib/dataCheck";
 import { Card, CardTitle, Button, Tag } from "../components/ui";
 import {
@@ -11,6 +11,7 @@ import {
   IconSettings,
   IconGrid,
   IconList,
+  IconTrash,
 } from "../components/icons";
 
 export default function WorkspacePage() {
@@ -18,6 +19,7 @@ export default function WorkspacePage() {
   const navigate = useNavigate();
   const [showNew, setShowNew] = useState(false);
   const [view, setView] = useState<"card" | "table">("card");
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
 
   function open(id: string) {
     setActiveProject(id);
@@ -93,9 +95,14 @@ export default function WorkspacePage() {
                     <Button onClick={() => open(p.id)}>
                       <IconSettings size={14} /> S&OP tool
                     </Button>
-                    {p.id !== "p_sealings" && (
-                      <Button variant="ghost" onClick={() => deleteProject(p.id)}>Delete</Button>
-                    )}
+                    <button
+                      onClick={() => setDeleteTarget(p)}
+                      title="Delete project"
+                      aria-label="Delete project"
+                      className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-ink-3)] transition-colors hover:bg-[#FCEBEB] hover:text-[var(--color-bad)]"
+                    >
+                      <IconTrash size={15} />
+                    </button>
                   </div>
                 </Card>
               );
@@ -106,10 +113,82 @@ export default function WorkspacePage() {
             projects={projects}
             onOpen={(id) => navigate(`/workspace/project/${id}`)}
             onTool={open}
-            onDelete={deleteProject}
+            onDelete={(p) => setDeleteTarget(p)}
           />
         )}
       </section>
+
+      {deleteTarget && (
+        <DeleteProjectModal
+          project={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            await deleteProject(id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteProjectModal({
+  project, onCancel, onConfirm,
+}: {
+  project: Project;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const armed = text.trim() === project.name;
+  const fileCount = project.files.length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FCEBEB] text-[var(--color-bad)]">
+            <IconTrash size={18} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold">Delete “{project.name}”?</h3>
+            <p className="mt-1 text-[12.5px] text-[var(--color-ink-2)]">
+              This permanently deletes the project and <strong>all of its underlying data</strong>. This cannot be undone.
+            </p>
+          </div>
+        </div>
+
+        <ul className="mt-3 space-y-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-3 text-[12px] text-[var(--color-ink-2)]">
+          <li>• {fileCount} uploaded data file{fileCount === 1 ? "" : "s"} and every version</li>
+          <li>• All saved dashboards &amp; pages for this project</li>
+          <li>• The decision &amp; action log and the VulOps register</li>
+          <li>• All governed demand overrides</li>
+        </ul>
+
+        <label className="mt-3 block text-[12px] text-[var(--color-ink-2)]">
+          Type <span className="font-semibold text-[var(--color-ink)]">{project.name}</span> to confirm
+        </label>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          placeholder={project.name}
+          className="mt-1.5 w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-3 py-2 text-[13px] outline-none focus:border-[var(--color-bad)]"
+        />
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <button
+            disabled={!armed || busy}
+            onClick={() => { setBusy(true); onConfirm(); }}
+            className={`rounded-md px-3.5 py-2 text-[13px] font-medium text-white transition-colors ${armed && !busy ? "bg-[var(--color-bad)] hover:brightness-95" : "cursor-not-allowed bg-[var(--color-bad)]/40"}`}
+          >
+            {busy ? "Deleting…" : "Delete project"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -142,7 +221,7 @@ function ProjectsTable({
   projects: ReturnType<typeof useProjects>["projects"];
   onOpen: (id: string) => void;
   onTool: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (p: Project) => void;
 }) {
   return (
     <Card pad={false}>
@@ -177,7 +256,14 @@ function ProjectsTable({
                   <div className="flex items-center justify-end gap-2">
                     <Button onClick={() => onOpen(p.id)}>Open <IconArrowRight size={14} /></Button>
                     <Button variant="ghost" onClick={() => onTool(p.id)}>S&OP tool</Button>
-                    {p.id !== "p_sealings" && <Button variant="ghost" onClick={() => onDelete(p.id)}>Delete</Button>}
+                    <button
+                      onClick={() => onDelete(p)}
+                      title="Delete project"
+                      aria-label="Delete project"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-ink-3)] transition-colors hover:bg-[#FCEBEB] hover:text-[var(--color-bad)]"
+                    >
+                      <IconTrash size={14} />
+                    </button>
                   </div>
                 </td>
               </tr>

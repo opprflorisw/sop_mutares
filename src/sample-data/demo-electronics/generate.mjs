@@ -63,17 +63,21 @@ const PLANTS = [
 // ---- SKUs (FG001–FG010) ----
 // base = avg monthly units (2025); m = forecast multiplier vs prior-year actual
 //   → drives MAPE/BIAS directly. sign of (m-1): + over-forecast, - under.
+// m = forecast multiplier vs prior-year actual → drives MAPE/BIAS directly:
+// mape ≈ |m-1|×100, bias sign = over (m>1) / under (m<1). Tuned to Varun's
+// FVA-bubble positions: FG001/FG009 good (≥75%), the climate/connectivity
+// SKUs fair (55–75%), and Power & Sensing the poor cluster (<55%).
 const SKUS = [
-  { sku: "FG001", desc: "Smart Home Hub Pro", family: "Smart Home", plant: "TLL", price: 168, cost: 119, base: 1050, m: 0.90, mpu: 9.0 },
-  { sku: "FG002", desc: "Smart Thermostat", family: "Climate Control", plant: "TLL", price: 96, cost: 64, base: 820, m: 0.86, mpu: 7.5 },
-  { sku: "FG003", desc: "Connect Bridge", family: "Connectivity", plant: "KRK", price: 54, cost: 36, base: 760, m: 1.12, mpu: 4.5 },
-  { sku: "FG004", desc: "Power Module X", family: "Power & Sensing", plant: "KRK", price: 132, cost: 101, base: 980, m: 1.40, mpu: 8.0 },
-  { sku: "FG005", desc: "Motion Sensor", family: "Power & Sensing", plant: "OPO", price: 39, cost: 27, base: 1500, m: 1.55, mpu: 3.0 },
-  { sku: "FG006", desc: "IoT Gateway Module", family: "Connectivity", plant: "OPO", price: 124, cost: 86, base: 1020, m: 0.87, mpu: 7.0 },
-  { sku: "FG007", desc: "Eco Plug Mini", family: "Power & Sensing", plant: "GDN", price: 22, cost: 17, base: 240, m: 1.65, mpu: 2.5 },
-  { sku: "FG008", desc: "Climate Sensor Pro", family: "Climate Control", plant: "MUC", price: 78, cost: 52, base: 520, m: 1.12, mpu: 6.0 },
-  { sku: "FG009", desc: "Smart Lock Pro", family: "Smart Home", plant: "TLL", price: 184, cost: 121, base: 980, m: 0.91, mpu: 9.5 },
-  { sku: "FG010", desc: "Air Quality Monitor", family: "Power & Sensing", plant: "MUC", price: 142, cost: 98, base: 940, m: 0.58, mpu: 8.5 },
+  { sku: "FG001", desc: "Smart Home Hub Pro", family: "Smart Home", plant: "TLL", price: 168, cost: 119, base: 1050, m: 0.77, mpu: 9.0 },   // acc ~77 · under
+  { sku: "FG002", desc: "Smart Thermostat", family: "Climate Control", plant: "TLL", price: 96, cost: 64, base: 820, m: 0.63, mpu: 7.5 },     // acc ~63 · under
+  { sku: "FG003", desc: "Connect Bridge", family: "Connectivity", plant: "KRK", price: 54, cost: 36, base: 760, m: 1.30, mpu: 4.5 },          // acc ~70 · over
+  { sku: "FG004", desc: "Power Module X", family: "Power & Sensing", plant: "KRK", price: 132, cost: 101, base: 980, m: 1.63, mpu: 8.0 },      // acc ~37 · over
+  { sku: "FG005", desc: "Motion Sensor", family: "Power & Sensing", plant: "OPO", price: 39, cost: 27, base: 1500, m: 1.94, mpu: 3.0 },        // acc ~6 · over
+  { sku: "FG006", desc: "IoT Gateway Module", family: "Connectivity", plant: "OPO", price: 124, cost: 86, base: 1020, m: 0.61, mpu: 7.0 },     // acc ~61 · under
+  { sku: "FG007", desc: "Eco Plug Mini", family: "Power & Sensing", plant: "GDN", price: 22, cost: 17, base: 240, m: 1.98, mpu: 2.5 },         // acc ~2 · over · EOL
+  { sku: "FG008", desc: "Climate Sensor Pro", family: "Climate Control", plant: "MUC", price: 78, cost: 52, base: 520, m: 1.32, mpu: 6.0 },    // acc ~68 · over
+  { sku: "FG009", desc: "Smart Lock Pro", family: "Smart Home", plant: "TLL", price: 184, cost: 121, base: 980, m: 0.75, mpu: 9.5 },           // acc ~75 · under
+  { sku: "FG010", desc: "Air Quality Monitor", family: "Power & Sensing", plant: "MUC", price: 142, cost: 98, base: 940, m: 0.37, mpu: 8.5 },  // acc ~37 · under
 ];
 const byId = Object.fromEntries(SKUS.map((s) => [s.sku, s]));
 const FAMILIES = [...new Set(SKUS.map((s) => s.family))];

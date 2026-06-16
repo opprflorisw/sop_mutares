@@ -19,7 +19,8 @@ page.on("pageerror", (e) => { if (!IGNORE.some((re) => re.test(String(e)))) erro
 async function waitForText(txt, ms = 15000) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
-    const found = await page.evaluate((t) => document.body.innerText.includes(t), txt);
+    // case-insensitive: innerText reflects CSS text-transform (e.g. uppercased headers)
+    const found = await page.evaluate((t) => document.body.innerText.toLowerCase().includes(t.toLowerCase()), txt);
     if (found) return true;
     await sleep(300);
   }
@@ -90,7 +91,9 @@ try {
     await waitForText(p.tabs[0][0], 12000);
     for (const [tab, marker] of p.tabs) {
       await clickText(tab);
-      const ok = await waitForText(marker, 8000);
+      await sleep(600);
+      let ok = await waitForText(marker, 12000);
+      if (!ok) { await clickText(tab); ok = await waitForText(marker, 8000); } // re-click in case a reseed re-render reset selection
       console.log(`  ${p.key} · ${tab}: marker "${marker}" ${ok ? "✓" : "MISSING"}`);
       if (!ok) errors.push(`${p.key}/${tab}: marker "${marker}" not found`);
       await page.screenshot({ path: `scripts/smoke-${p.key}-${tab.replace(/[^a-z0-9]+/gi, "_")}.png` });

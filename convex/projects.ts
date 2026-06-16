@@ -92,11 +92,16 @@ export const create = mutation({
 export const remove = mutation({
   args: { id: v.id("projects") },
   handler: async (ctx, { id }) => {
-    const files = await ctx.db
-      .query("projectFiles")
-      .withIndex("by_project", (q) => q.eq("projectId", id))
-      .collect();
-    for (const f of files) await ctx.db.delete(f._id);
+    // Cascade — remove every record that belongs to this project so nothing
+    // is orphaned (files + versions, dashboards, decisions, vulops, overrides).
+    const tables = ["projectFiles", "dashboards", "decisions", "vulops", "overrides"] as const;
+    for (const t of tables) {
+      const rows = await ctx.db
+        .query(t)
+        .withIndex("by_project", (q) => q.eq("projectId", id))
+        .collect();
+      for (const r of rows) await ctx.db.delete(r._id);
+    }
     await ctx.db.delete(id);
   },
 });
@@ -243,16 +248,28 @@ export const ensureSeed = mutation({
     ),
   },
   handler: async (ctx, { users, projects }) => {
-    // Insert seeded dashboards for a project, idempotently (by name).
+    // Upsert seeded dashboards for a project. Matched by name: a seed-owned
+    // dashboard is refreshed in place (page/widgets/icon may have changed in
+    // code) so the demo always reflects the latest definition; user-owned
+    // dashboards with the same name are left untouched.
     async function seedDashboards(projectId: Id<"projects">, defs?: SeedDashboard[]) {
       if (!defs?.length) return;
       const have = await ctx.db
         .query("dashboards")
         .withIndex("by_project", (q) => q.eq("projectId", projectId))
         .collect();
-      const names = new Set(have.map((d) => d.name));
+      const byName = new Map(have.map((d) => [d.name, d]));
       for (const dash of defs) {
-        if (names.has(dash.name)) continue;
+        const existing = byName.get(dash.name);
+        if (existing) {
+          if (existing.owner === "seed") {
+            await ctx.db.patch(existing._id, {
+              icon: dash.icon, description: dash.description, page: dash.page,
+              widgets: dash.widgets as never, updatedAt: 0,
+            });
+          }
+          continue;
+        }
         await ctx.db.insert("dashboards", {
           projectId, name: dash.name, icon: dash.icon, description: dash.description,
           page: dash.page, owner: "seed", widgets: dash.widgets as never, createdAt: 0, updatedAt: 0,

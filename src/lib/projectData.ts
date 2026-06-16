@@ -261,6 +261,46 @@ function lagTrendFor(bias: number, mape: number): number[] {
   return f.map((x) => +(bias * x).toFixed(1));
 }
 
+// Accuracy status banded to match the FVA scatter (≥75% acc good / 55–75
+// fair / <55 poor → mape ≤25 / 25–45 / >45). state = the review verdict.
+function statusFor(mape: number): SkuAccuracy["status"] {
+  return mape > 45 ? "bad" : mape > 25 ? "warn" : "good";
+}
+const stateOf: Record<SkuAccuracy["status"], string> = { good: "Approved", warn: "Pending", bad: "Override" };
+
+// A specific, human review action from the error size + direction + trend.
+// bias>0 = over-forecast (forecast ran ahead of actual); <0 = under-forecast.
+function actionFor(bias: number, mape: number, lagTrend: number[]): string {
+  if (mape <= 12) return "Good accuracy. No action needed.";
+  if (mape <= 25) return "Stable. Maintain model.";
+  const worsening = Math.abs(lagTrend[3]) > Math.abs(lagTrend[0]);
+  const over = bias > 0;
+  const trend = worsening ? "Worsening" : "Consistent";
+  if (mape > 45) {
+    return over
+      ? `${trend} over-forecast (${mape}%). Apply demand sensing & recalibrate.`
+      : `${trend} under-forecast (${mape}%). Add promo calendar / known orders.`;
+  }
+  return over
+    ? `${trend} over-forecast. Check pull-forward & validate mix.`
+    : `${trend} under-forecast. Validate mix shift & demand drivers.`;
+}
+
+// Value-weighted forecast accuracy — the board number (A-items dominate),
+// so a few low-value bad SKUs don't sink the headline. Falls back to the
+// simple mean when no value weights are available.
+function weightedAccuracy(rows: SkuAccuracy[], valueBy: Map<string, number>): number {
+  let wsum = 0, w = 0, asum = 0, n = 0;
+  for (const r of rows) {
+    if (r.mape <= 0) continue;
+    const acc = Math.max(0, 100 - r.mape);
+    const val = valueBy.get(r.sku) ?? 0;
+    wsum += acc * val; w += val; asum += acc; n++;
+  }
+  if (w > 0) return Math.round(wsum / w);
+  return n ? Math.round(asum / n) : 0;
+}
+
 // Named capacity options to close a network load gap (img 8). Deterministic
 // from the overloaded minutes + the value density of the plan.
 function buildCapacityScenarios(overloadMin: number, revPerMin: number): CapacityScenario[] {
@@ -389,17 +429,18 @@ function computeFloorData(project: Project): ProjectData {
       if (a === undefined || f === undefined || a === 0) continue;
       errSum += Math.abs(f - a) / a; n++; fSum += f; aSum += a;
     }
-    const mape = n ? (errSum / n) * 100 : 0; const bias = aSum ? ((fSum - aSum) / aSum) * 100 : 0;
-    const status: SkuAccuracy["status"] = mape > 15 ? "bad" : mape > 10 ? "warn" : "good";
+    const mape = +(n ? (errSum / n) * 100 : 0).toFixed(1); const bias = +(aSum ? ((fSum - aSum) / aSum) * 100 : 0).toFixed(1);
+    const status = statusFor(mape);
+    const lagTrend = lagTrendFor(bias, mape);
     return {
-      sku: s.sku, desc: s.desc, mape: +mape.toFixed(1), bias: +bias.toFixed(1), status,
-      state: status === "good" ? "Approved" : status === "warn" ? "Pending" : "Override",
-      action: status === "good" ? "Stable. Maintain plan." : status === "warn" ? "Drift vs plan — validate mix." : "High error vs plan. Recalibrate.",
-      lagTrend: lagTrendFor(+bias.toFixed(1), +mape.toFixed(1)),
+      sku: s.sku, desc: s.desc, mape, bias, status,
+      state: stateOf[status], action: actionFor(bias, mape, lagTrend), lagTrend,
     };
   }).sort((a, b) => b.mape - a.mape);
   const validAcc = skuAccuracy.filter((a) => a.mape > 0);
-  const forecastAccuracy = validAcc.length ? Math.round(100 - validAcc.reduce((s, a) => s + a.mape, 0) / validAcc.length) : 0;
+  const salesValByItem = new Map<string, number>();
+  for (const r of salesRows) salesValByItem.set(r.item_id, (salesValByItem.get(r.item_id) ?? 0) + num(r.revenue));
+  const forecastAccuracy = weightedAccuracy(skuAccuracy, salesValByItem);
   const forecastBias = validAcc.length ? +(validAcc.reduce((s, a) => s + a.bias, 0) / validAcc.length).toFixed(1) : 0;
 
   // ---- demand mix (channel if present, else region) ----
@@ -688,19 +729,13 @@ export function computeProjectData(project: Project | null): ProjectData {
       if (!a) continue;
       errSum += Math.abs(f - a) / a; n++; fSum += f; aSum += a;
     }
-    const mape = n ? (errSum / n) * 100 : 0;
-    const bias = aSum ? ((fSum - aSum) / aSum) * 100 : 0;
-    const status: SkuAccuracy["status"] = mape > 15 ? "bad" : mape > 10 ? "warn" : "good";
+    const mape = +(n ? (errSum / n) * 100 : 0).toFixed(1);
+    const bias = +(aSum ? ((fSum - aSum) / aSum) * 100 : 0).toFixed(1);
+    const status = statusFor(mape);
+    const lagTrend = lagTrendFor(bias, mape);
     return {
-      sku: s.sku, desc: s.desc,
-      mape: +mape.toFixed(1), bias: +bias.toFixed(1),
-      status,
-      state: status === "good" ? "Approved" : status === "warn" ? "Pending" : "Override",
-      action:
-        status === "good" ? "Stable. Maintain model."
-        : status === "warn" ? "Drift vs prior year — validate mix."
-        : "High error vs prior year. Recalibrate before consensus.",
-      lagTrend: lagTrendFor(+bias.toFixed(1), +mape.toFixed(1)),
+      sku: s.sku, desc: s.desc, mape, bias, status,
+      state: stateOf[status], action: actionFor(bias, mape, lagTrend), lagTrend,
     };
   }).sort((a, b) => b.mape - a.mape);
 
@@ -736,9 +771,9 @@ export function computeProjectData(project: Project | null): ProjectData {
     return s + (sk ? num(r.baseline_qty) * sk.price : 0);
   }, 0);
   const validAcc = skuAccuracy.filter((a) => a.mape > 0);
-  const forecastAccuracy = validAcc.length
-    ? Math.round(100 - validAcc.reduce((s, a) => s + a.mape, 0) / validAcc.length)
-    : 0;
+  const fcValueBySku = new Map<string, number>();
+  for (const r of fcRows) { const sk = skuByCode.get(r.sku); if (sk) fcValueBySku.set(r.sku, (fcValueBySku.get(r.sku) ?? 0) + num(r.baseline_qty) * sk.price); }
+  const forecastAccuracy = weightedAccuracy(skuAccuracy, fcValueBySku);
   const forecastBias = validAcc.length
     ? +(validAcc.reduce((s, a) => s + a.bias, 0) / validAcc.length).toFixed(1)
     : 0;

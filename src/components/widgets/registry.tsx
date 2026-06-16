@@ -1,7 +1,7 @@
 import {
   Bar, BarChart, Line, ComposedChart, PieChart, Pie, Cell, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  ScatterChart, Scatter, ZAxis, ReferenceLine,
+  ScatterChart, Scatter, ZAxis, ReferenceLine, LabelList,
 } from "recharts";
 import type { FC } from "react";
 import { Card, KpiTile, Tag } from "../ui";
@@ -191,17 +191,31 @@ const LagSpark: FC<{ trend: number[] }> = ({ trend }) => {
     </div>
   );
 };
+// BIAS trend bar — a 0-centred mini bar: left = under-forecast, right = over.
+const BiasBar: FC<{ bias: number }> = ({ bias }) => {
+  const tone = Math.abs(bias) > 20 ? C.bad : Math.abs(bias) > 10 ? C.warn : C.good;
+  const w = Math.min(50, (Math.abs(bias) / 60) * 50); // % of half-width, capped at 60% bias
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <span className="tabular-nums" style={{ color: tone }}>{bias >= 0 ? "+" : ""}{bias}%</span>
+      <div className="relative h-2.5 w-16 rounded-full bg-[var(--color-surface-3)]">
+        <span className="absolute left-1/2 top-0 h-full w-px bg-[var(--color-line-strong)]" />
+        <span className="absolute top-0 h-full rounded-full" style={{ background: tone, width: `${w}%`, left: bias >= 0 ? "50%" : undefined, right: bias < 0 ? "50%" : undefined }} />
+      </div>
+    </div>
+  );
+};
 const AccuracyTable: FC<WidgetProps> = ({ d }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-[12px]">
-      <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">SKU</th><th className="py-1.5 font-medium">Description</th><th className="py-1.5 text-right font-medium">MAPE</th><th className="py-1.5 text-right font-medium">BIAS</th><th className="py-1.5 text-center font-medium">Lag trend</th><th className="py-1.5 font-medium">Status</th><th className="hidden py-1.5 font-medium lg:table-cell">Action</th></tr></thead>
+      <thead className="text-left text-[10.5px] uppercase tracking-wide text-[var(--color-ink-3)]"><tr className="border-b border-[var(--color-line)]"><th className="py-2 font-medium">SKU</th><th className="py-2 font-medium">Description</th><th className="py-2 text-right font-medium">MAPE</th><th className="py-2 text-right font-medium">BIAS trend</th><th className="py-2 text-center font-medium">Lag trend</th><th className="py-2 font-medium">Status</th><th className="hidden py-2 font-medium lg:table-cell">Action</th></tr></thead>
       <tbody>
-        {d.skuAccuracy.slice(0, 10).map((s) => (
-          <tr key={s.sku} className="border-t border-[var(--color-line)] align-middle">
-            <td className="py-2 font-medium">{s.sku}</td>
+        {d.skuAccuracy.slice(0, 10).map((s, i) => (
+          <tr key={s.sku} className={`align-middle ${i % 2 ? "bg-[var(--color-surface-2)]/40" : ""}`}>
+            <td className="py-2 font-semibold">{s.sku}</td>
             <td className="py-2 text-[var(--color-ink-2)]">{s.desc}</td>
-            <td className={`py-2 text-right font-medium ${s.mape > 15 ? "text-[var(--color-bad)]" : s.mape > 10 ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{s.mape}%</td>
-            <td className={`py-2 text-right ${Math.abs(s.bias) > 15 ? "text-[var(--color-bad)]" : "text-[var(--color-ink)]"}`}>{s.bias >= 0 ? "+" : ""}{s.bias}%</td>
+            <td className={`py-2 text-right font-semibold tabular-nums ${s.mape > 45 ? "text-[var(--color-bad)]" : s.mape > 25 ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{s.mape}%</td>
+            <td className="py-2 text-right"><div className="flex justify-end"><BiasBar bias={s.bias} /></div></td>
             <td className="py-2"><div className="flex justify-center"><LagSpark trend={s.lagTrend} /></div></td>
             <td className="py-2"><Tag tone={s.status === "good" ? "good" : s.status === "warn" ? "warn" : "bad"}>{s.state}</Tag></td>
             <td className="hidden py-2 text-[11px] text-[var(--color-ink-2)] lg:table-cell">{s.action}</td>
@@ -220,8 +234,12 @@ const AccuracyScatter: FC<WidgetProps> = ({ d }) => {
     .map((s) => { const acc = Math.max(0, Math.round(100 - s.mape)); const rev = valBy.get(s.sku) ?? 0; return { sku: s.sku, acc, rev, z: Math.max(rev, 1), fill: acc >= 75 ? C.good : acc >= 55 ? C.warn : C.bad }; })
     .filter((p) => p.rev > 0);
   if (!pts.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">Need both forecast value and accuracy to plot.</div>;
+  const good = pts.filter((p) => p.acc >= 75).length, poor = pts.filter((p) => p.acc < 55).length;
   return (
-    <div className="flex h-full min-h-[210px] flex-col">
+    <div className="flex h-full min-h-[230px] flex-col">
+      <p className="mb-1 shrink-0 text-[10.5px] text-[var(--color-ink-3)]">
+        Each bubble is a SKU — accuracy (higher = better) vs 12-month forecast revenue; size = revenue. Prioritise the big bubbles below the lines. {good} of {pts.length} good · {poor} poor.
+      </p>
       <div className="mb-1 flex shrink-0 gap-3 text-[10.5px] text-[var(--color-ink-2)]">
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: C.good }} />≥75% good</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: C.warn }} />55–75% fair</span>
@@ -229,16 +247,17 @@ const AccuracyScatter: FC<WidgetProps> = ({ d }) => {
       </div>
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={{ top: 8, right: 12, left: 4, bottom: 16 }}>
+          <ScatterChart margin={{ top: 8, right: 20, left: 4, bottom: 18 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
             <XAxis type="number" dataKey="rev" name="Forecast revenue" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} label={{ value: "12M forecast revenue", position: "insideBottom", offset: -8, fontSize: 10, fill: C.axis }} />
             <YAxis type="number" dataKey="acc" name="Accuracy" domain={[0, 100]} tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
-            <ZAxis type="number" dataKey="z" range={[60, 420]} />
+            <ZAxis type="number" dataKey="z" range={[80, 520]} />
             <ReferenceLine y={75} stroke={C.good} strokeDasharray="4 3" />
             <ReferenceLine y={55} stroke={C.warn} strokeDasharray="4 3" />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={TOOLTIP_STYLE} formatter={(v: number, n: string) => (n === "Accuracy" ? `${v}%` : n === "Forecast revenue" ? fmtMoney(v, d.currency) : v)} />
             <Scatter data={pts}>
-              {pts.map((p, i) => <Cell key={i} fill={p.fill} fillOpacity={0.78} />)}
+              {pts.map((p, i) => <Cell key={i} fill={p.fill} fillOpacity={0.8} />)}
+              <LabelList dataKey="sku" position="right" offset={6} style={{ fontSize: 9, fill: C.axis }} />
             </Scatter>
           </ScatterChart>
         </ResponsiveContainer>
