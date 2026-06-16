@@ -106,7 +106,9 @@ export default function AssistantDrawer() {
       setShown(0);
       return;
     }
-    const id = setTimeout(() => setShown((s) => Math.min(typing.text.length, s + 4)), 10);
+    // reveal in ~220 ticks regardless of length, so long answers don't crawl
+    const step = Math.max(4, Math.round(typing.text.length / 220));
+    const id = setTimeout(() => setShown((s) => Math.min(typing.text.length, s + step)), 12);
     return () => clearTimeout(id);
   }, [typing, shown]);
 

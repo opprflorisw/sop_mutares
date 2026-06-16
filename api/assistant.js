@@ -47,26 +47,39 @@ If asked something the context can't answer, say so briefly and suggest what dat
     parts: [{ text: m.text }],
   }));
 
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+  const callGemini = (generationConfig) =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig }),
+    });
+  const extract = (data) => ({
+    text: data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("") || "",
+    finish: data?.candidates?.[0]?.finishReason || "",
+  });
+
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: { temperature: 0.5, maxOutputTokens: 1200 },
-        }),
-      }
-    );
+    // Newer Gemini flash models reason with "thinking" tokens that count
+    // against maxOutputTokens — that was silently truncating visible answers
+    // (the budget was spent thinking). Disable thinking so the whole budget
+    // goes to the reply, and give it ample room.
+    let r = await callGemini({ temperature: 0.5, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } });
+    // If this model rejects thinkingConfig (older models), retry without it.
+    if (r.status === 400) {
+      r = await callGemini({ temperature: 0.5, maxOutputTokens: 8192 });
+    }
     if (!r.ok) {
       res.status(502).json({ error: `Gemini ${r.status}` });
       return;
     }
-    const data = await r.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+    let { text, finish } = extract(await r.json());
+    // Safety net: if the answer was still cut off by the cap, retry once with
+    // a larger budget (thinking on) and keep whichever reply is longer.
+    if (finish === "MAX_TOKENS" && text.length < 200) {
+      const r2 = await callGemini({ temperature: 0.5, maxOutputTokens: 8192 });
+      if (r2.ok) { const e2 = extract(await r2.json()); if (e2.text.length > text.length) text = e2.text; }
+    }
     res.status(200).json({ text });
   } catch (e) {
     res.status(502).json({ error: String(e) });
