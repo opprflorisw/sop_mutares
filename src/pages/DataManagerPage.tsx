@@ -9,6 +9,7 @@ import {
   type DataTemplate, type Requirement,
 } from "../lib/templates";
 import { parseCsv, triggerDownload } from "../lib/csv";
+import { checkDrift } from "../lib/dataProfile";
 import { runDataCheck, type DataCheckResult } from "../lib/dataCheck";
 import { aiDataNarrative, type AiSource } from "../lib/ai";
 import { Card, CardTitle, Button, Tag } from "../components/ui";
@@ -85,9 +86,14 @@ export default function DataManagerPage() {
           <h1 className="truncate text-[20px] font-semibold">{project.name}</h1>
           <p className="text-[12.5px] text-[var(--color-ink-2)]">{project.industry} · {project.factory}</p>
         </div>
-        <Button variant="primary" className="ml-auto" onClick={() => { setActiveProject(project.id); navigate("/tool/overview"); }}>
-          Open S&OP tool <IconArrowRight size={14} />
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button onClick={() => navigate(`/workspace/project/${project.id}/setup`)}>
+            <IconSparkles size={14} /> Set up dashboards
+          </Button>
+          <Button variant="primary" onClick={() => { setActiveProject(project.id); navigate("/tool/overview"); }}>
+            Open S&OP tool <IconArrowRight size={14} />
+          </Button>
+        </div>
       </div>
 
       <ScenarioBackground project={project} />
@@ -155,6 +161,7 @@ function FileRows({
 }) {
   const { addFileVersion, setActiveFileVersion, deleteFileVersion } = useProjects();
   const [expanded, setExpanded] = useState(false);
+  const [drift, setDrift] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const file = findFile(project, template.id);
@@ -163,7 +170,25 @@ function FileRows({
 
   async function onUpload(f: File) {
     const text = await f.text();
+    // Drift check vs the format the project was built on (the current
+    // active version, if any) — so re-uploads in the same format flow
+    // through quietly, and a changed shape is flagged before it lands.
+    const { headers } = parseCsv(text);
+    let nextDrift: string | null = null;
+    if (active) {
+      const prevHeaders = parseCsv(active.content).headers;
+      const prevFp = [...prevHeaders].map((h) => h.trim().toLowerCase()).sort().join("|");
+      const d = checkDrift(template, headers, prevFp);
+      if (!d.sameFormat) {
+        const parts: string[] = [];
+        if (d.missingRequired.length) parts.push(`missing required: ${d.missingRequired.join(", ")}`);
+        if (d.extraColumns.length) parts.push(`new column(s): ${d.extraColumns.join(", ")}`);
+        if (d.missingOptional.length) parts.push(`dropped optional: ${d.missingOptional.join(", ")}`);
+        nextDrift = parts.length ? `Format changed vs v${active.version} — ${parts.join(" · ")}. Filed as a new version; check affected widgets.` : null;
+      }
+    }
     await addFileVersion(project.id, template.id, f.name, text);
+    setDrift(nextDrift);
     setExpanded(true);
   }
 
@@ -194,6 +219,9 @@ function FileRows({
           )}
           {active && active.issues.length > 0 && (
             <div className="mt-0.5 text-[11px] text-[var(--color-warn)]">⚠ {active.issues.join(" · ")}</div>
+          )}
+          {drift && (
+            <div className="mt-1 rounded border border-[#E7C98B] bg-[#FAEEDA] px-2 py-1 text-[11px] text-[#854F0B]">⚠ {drift}</div>
           )}
         </td>
         <td className="px-2 py-2.5 align-top text-[11px]">

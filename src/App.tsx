@@ -8,6 +8,7 @@ import WorkspacePage from "./pages/WorkspacePage";
 import DataManagerPage from "./pages/DataManagerPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import DashboardUnderstandingPage from "./pages/DashboardUnderstandingPage";
+import DashboardSetupPage from "./pages/DashboardSetupPage";
 import ToolLayout from "./components/ToolLayout";
 import DashboardsPage from "./pages/tool/DashboardsPage";
 import SettingsPage from "./pages/tool/SettingsPage";
@@ -45,6 +46,7 @@ export default function App() {
       >
         <Route index element={<WorkspacePage />} />
         <Route path="project/:id" element={<DataManagerPage />} />
+        <Route path="project/:id/setup" element={<DashboardSetupPage />} />
         <Route path="understanding" element={<DashboardUnderstandingPage />} />
         <Route path="accounts" element={<AccountManagementPage />} />
       </Route>
