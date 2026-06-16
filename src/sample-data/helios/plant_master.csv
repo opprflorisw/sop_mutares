@@ -1,4 +1,4 @@
 plant,name,location,capacity_minutes,target_inv_days
-MIL,Milan,Milano, IT,57600,45
-TUR,Turin,Torino, IT,28800,45
-BOL,Bologna,Bologna, IT,50400,45
+MIL,Milan,"Milano, IT",57600,45
+TUR,Turin,"Torino, IT",28800,45
+BOL,Bologna,"Bologna, IT",50400,45

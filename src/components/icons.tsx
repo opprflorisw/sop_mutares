@@ -1,97 +1,78 @@
-import type { SVGProps } from "react";
+import type { ComponentType } from "react";
+import {
+  IconLayoutDashboard, IconHierarchy3, IconChartLine, IconBuildingFactory2,
+  IconBox as TIconBox, IconChecks as TIconChecks, IconRadar2, IconSparkles as TIconSparkles,
+  IconFolder as TIconFolder, IconUpload as TIconUpload, IconDownload as TIconDownload,
+  IconSettings as TIconSettings, IconUsers as TIconUsers, IconLogout as TIconLogout,
+  IconArrowLeft as TIconArrowLeft, IconArrowRight as TIconArrowRight, IconPlus as TIconPlus,
+  IconSend as TIconSend, IconFileText, IconAlertTriangle, IconDotsVertical, IconEye as TIconEye,
+  IconFilter as TIconFilter, IconChevronDown as TIconChevronDown, IconChevronRight as TIconChevronRight,
+  IconAdjustmentsHorizontal, IconLoader2, IconLayoutGrid as TIconLayoutGrid, IconX as TIconX,
+  IconGripVertical as TIconGripVertical, IconCopy as TIconCopy, IconTrash as TIconTrash,
+  IconPencil as TIconPencil, IconDeviceFloppy, IconBolt as TIconBolt, IconCheck as TIconCheck,
+} from "@tabler/icons-react";
 
-// Minimal inline icon set (stroke-based, 1.6px) — avoids an icon dependency.
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+// ============================================================
+// Icon set — re-exports Tabler Icons (https://tabler.io/icons) under
+// the names used across the app, so the whole UI shares one clean,
+// consistent stroke icon set. Wrapper keeps our `size`/`stroke`
+// defaults and passes through className/style/onClick/title.
+// ============================================================
 
-function base({ size = 18, ...props }: IconProps) {
-  return {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.6,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    ...props,
+export type IconProps = {
+  size?: number;
+  stroke?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: React.MouseEventHandler<SVGSVGElement>;
+  title?: string;
+  "aria-label"?: string;
+};
+
+function wrap(I: ComponentType<Record<string, unknown>>) {
+  return function Icon({ size = 18, stroke = 1.8, ...rest }: IconProps) {
+    return <I size={size} stroke={stroke} {...rest} />;
   };
 }
 
-export const IconDashboard = (p: IconProps) => (
-  <svg {...base(p)}><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>
-);
-export const IconFlow = (p: IconProps) => (
-  <svg {...base(p)}><rect x="3" y="3" width="6" height="6" rx="1" /><rect x="15" y="15" width="6" height="6" rx="1" /><rect x="9" y="9" width="6" height="6" rx="1" /></svg>
-);
-export const IconChart = (p: IconProps) => (
-  <svg {...base(p)}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></svg>
-);
-export const IconFactory = (p: IconProps) => (
-  <svg {...base(p)}><path d="M3 21V9l6 4V9l6 4V5l6 4v12H3z" /><path d="M7 21v-4M12 21v-4M17 21v-4" /></svg>
-);
-export const IconBox = (p: IconProps) => (
-  <svg {...base(p)}><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>
-);
-export const IconChecks = (p: IconProps) => (
-  <svg {...base(p)}><path d="M3 12l4 4 7-9" /><path d="M11 16l2 2 7-9" /></svg>
-);
-export const IconRadar = (p: IconProps) => (
-  <svg {...base(p)}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.5" /><path d="M12 12l6-3" /></svg>
-);
-export const IconSparkles = (p: IconProps) => (
-  <svg {...base(p)}><path d="M12 3l1.8 4.7L18.5 9l-4.7 1.8L12 15l-1.8-4.2L5.5 9l4.7-1.3L12 3z" /><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z" /></svg>
-);
-export const IconFolder = (p: IconProps) => (
-  <svg {...base(p)}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>
-);
-export const IconUpload = (p: IconProps) => (
-  <svg {...base(p)}><path d="M12 16V4" /><path d="M8 8l4-4 4 4" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
-);
-export const IconDownload = (p: IconProps) => (
-  <svg {...base(p)}><path d="M12 4v12" /><path d="M8 12l4 4 4-4" /><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
-);
-export const IconSettings = (p: IconProps) => (
-  <svg {...base(p)}><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M5 5l2 2M17 17l2 2M2 12h3M19 12h3M5 19l2-2M17 7l2-2" /></svg>
-);
-export const IconUsers = (p: IconProps) => (
-  <svg {...base(p)}><circle cx="9" cy="8" r="3.2" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.5a3 3 0 0 1 0 5.8" /><path d="M17 14.5a6 6 0 0 1 4 5.5" /></svg>
-);
-export const IconLogout = (p: IconProps) => (
-  <svg {...base(p)}><path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
-);
-export const IconArrowLeft = (p: IconProps) => (
-  <svg {...base(p)}><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
-);
-export const IconArrowRight = (p: IconProps) => (
-  <svg {...base(p)}><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>
-);
-export const IconPlus = (p: IconProps) => (
-  <svg {...base(p)}><path d="M12 5v14M5 12h14" /></svg>
-);
-export const IconSend = (p: IconProps) => (
-  <svg {...base(p)}><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-);
-export const IconFile = (p: IconProps) => (
-  <svg {...base(p)}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" /><path d="M14 3v5h5" /></svg>
-);
-export const IconAlert = (p: IconProps) => (
-  <svg {...base(p)}><path d="M12 3l9 16H3l9-16z" /><path d="M12 10v4M12 17v.5" /></svg>
-);
-export const IconDots = (p: IconProps) => (
-  <svg {...base(p)}><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-);
-export const IconEye = (p: IconProps) => (
-  <svg {...base(p)}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
-);
-export const IconFilter = (p: IconProps) => (
-  <svg {...base(p)}><path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" /></svg>
-);
-export const IconChevronDown = (p: IconProps) => (
-  <svg {...base(p)}><path d="M6 9l6 6 6-6" /></svg>
-);
-export const IconGear = (p: IconProps) => (
-  <svg {...base(p)}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-);
-export const IconSpinner = ({ size = 16, className = "", ...p }: IconProps) => (
-  <svg {...base({ size, ...p })} className={`animate-spin ${className}`}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+export const IconDashboard = wrap(IconLayoutDashboard);
+export const IconFlow = wrap(IconHierarchy3);
+export const IconChart = wrap(IconChartLine);
+export const IconFactory = wrap(IconBuildingFactory2);
+export const IconBox = wrap(TIconBox);
+export const IconChecks = wrap(TIconChecks);
+export const IconRadar = wrap(IconRadar2);
+export const IconSparkles = wrap(TIconSparkles);
+export const IconFolder = wrap(TIconFolder);
+export const IconUpload = wrap(TIconUpload);
+export const IconDownload = wrap(TIconDownload);
+export const IconSettings = wrap(TIconSettings);
+export const IconUsers = wrap(TIconUsers);
+export const IconLogout = wrap(TIconLogout);
+export const IconArrowLeft = wrap(TIconArrowLeft);
+export const IconArrowRight = wrap(TIconArrowRight);
+export const IconPlus = wrap(TIconPlus);
+export const IconSend = wrap(TIconSend);
+export const IconFile = wrap(IconFileText);
+export const IconAlert = wrap(IconAlertTriangle);
+export const IconDots = wrap(IconDotsVertical);
+export const IconEye = wrap(TIconEye);
+export const IconFilter = wrap(TIconFilter);
+export const IconChevronDown = wrap(TIconChevronDown);
+export const IconChevronRight = wrap(TIconChevronRight);
+export const IconGear = wrap(IconAdjustmentsHorizontal);
+
+// Dashboard-system icons
+export const IconGrid = wrap(TIconLayoutGrid);
+export const IconX = wrap(TIconX);
+export const IconGrip = wrap(TIconGripVertical);
+export const IconCopy = wrap(TIconCopy);
+export const IconTrash = wrap(TIconTrash);
+export const IconPencil = wrap(TIconPencil);
+export const IconSave = wrap(IconDeviceFloppy);
+export const IconBolt = wrap(TIconBolt);
+export const IconCheck = wrap(TIconCheck);
+
+export const IconSpinner = ({ size = 16, stroke = 1.8, className = "", ...p }: IconProps) => (
+  <IconLoader2 size={size} stroke={stroke} className={`animate-spin ${className}`} {...p} />
 );

@@ -1,6 +1,6 @@
 plant,name,location,capacity_minutes,target_inv_days
-BWL,Bawal,Haryana, IN,86400,40
-MNR,Manesar,Haryana, IN,64800,40
-CNS,Chennai,Tamil Nadu, IN,43200,40
-SND,Sanand,Gujarat, IN,50400,40
-SBD,Sahibabad,Uttar Pradesh, IN,36000,40
+BWL,Bawal,"Haryana, IN",86400,40
+MNR,Manesar,"Haryana, IN",64800,40
+CNS,Chennai,"Tamil Nadu, IN",43200,40
+SND,Sanand,"Gujarat, IN",50400,40
+SBD,Sahibabad,"Uttar Pradesh, IN",36000,40

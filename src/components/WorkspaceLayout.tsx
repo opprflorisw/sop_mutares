@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { IconFolder, IconUsers, IconLogout } from "./icons";
+import { IconFolder, IconUsers, IconLogout, IconDashboard } from "./icons";
 
 export default function WorkspaceLayout() {
   const { user, logout } = useAuth();
@@ -19,6 +19,9 @@ export default function WorkspaceLayout() {
         <nav className="ml-4 flex items-center gap-1">
           <WsTab to="/workspace" end>
             <IconFolder size={15} /> Projects & Data
+          </WsTab>
+          <WsTab to="/workspace/understanding">
+            <IconDashboard size={15} /> Dashboard model
           </WsTab>
           <WsTab to="/workspace/accounts">
             <IconUsers size={15} /> Accounts

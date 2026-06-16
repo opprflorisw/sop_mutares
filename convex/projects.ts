@@ -246,6 +246,24 @@ export const ensureSeed = mutation({
         if (found.description !== proj.description || found.background !== proj.background) {
           await ctx.db.patch(found._id, { description: proj.description, background: proj.background });
         }
+        // refresh the active version's content where the seed file changed
+        // (e.g. a data fix) — keeps versions, vulops, decisions intact.
+        for (const f of proj.files as SeedFile[]) {
+          const versions = await ctx.db
+            .query("projectFiles")
+            .withIndex("by_project_template", (q) =>
+              q.eq("projectId", found._id).eq("templateId", f.templateId)
+            )
+            .collect();
+          if (versions.length === 0) continue;
+          const active = versions.find((v) => v.active) ?? versions[versions.length - 1];
+          if (active.content !== f.content) {
+            await ctx.db.patch(active._id, {
+              content: f.content, rows: f.rows, status: f.status,
+              issues: f.issues, coverage: f.coverage,
+            });
+          }
+        }
         continue;
       }
       const projectId: Id<"projects"> = await ctx.db.insert("projects", {

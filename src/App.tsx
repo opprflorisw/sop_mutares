@@ -7,6 +7,7 @@ import WorkspaceLayout from "./components/WorkspaceLayout";
 import WorkspacePage from "./pages/WorkspacePage";
 import DataManagerPage from "./pages/DataManagerPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
+import DashboardUnderstandingPage from "./pages/DashboardUnderstandingPage";
 import ToolLayout from "./components/ToolLayout";
 import OverviewPage from "./pages/tool/OverviewPage";
 import DemandPage from "./pages/tool/DemandPage";
@@ -47,6 +48,7 @@ export default function App() {
       >
         <Route index element={<WorkspacePage />} />
         <Route path="project/:id" element={<DataManagerPage />} />
+        <Route path="understanding" element={<DashboardUnderstandingPage />} />
         <Route path="accounts" element={<AccountManagementPage />} />
       </Route>
 

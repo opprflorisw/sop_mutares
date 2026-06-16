@@ -67,7 +67,8 @@ function months(sy, sm, count) {
 }
 const seasonal = (i) => 1 + 0.1 * Math.sin(((i + 1) * Math.PI) / 6);
 const round = (n) => Math.round(n);
-const toCsv = (h, rows) => [h.join(","), ...rows.map((r) => r.join(","))].join("\n") + "\n";
+const csvCell = (v) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+const toCsv = (h, rows) => [h.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\n") + "\n";
 function write(name, content) {
   writeFileSync(join(OUT, name), content, "utf8");
   console.log(`  ${name.padEnd(22)} ${content.trim().split("\n").length - 1} rows`);

@@ -132,8 +132,11 @@ export default function ToolLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto">
+          {/* centered, capped content — keeps dense cards readable on wide/4K screens */}
+          <div className="mx-auto w-full max-w-[1600px] p-4 lg:px-6 lg:py-5">
+            <Outlet />
+          </div>
         </main>
       </div>
 

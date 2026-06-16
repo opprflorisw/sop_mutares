@@ -1,10 +1,33 @@
-// Minimal CSV utilities — enough for our enforced templates
-// (no embedded commas/newlines in fields). Keeps the bundle lean.
+// Minimal CSV utilities for our enforced templates. Quote-aware: a
+// field wrapped in double quotes may contain commas (e.g. a location
+// like "Monterrey, MX") and "" is an escaped quote.
 
 export type ParsedCsv = {
   headers: string[];
   rows: Record<string, string>[];
 };
+
+/** Split one CSV line into cells, honouring "quoted, fields". */
+function splitCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } // escaped quote
+        else inQuotes = false;
+      } else cur += ch;
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      cells.push(cur); cur = "";
+    } else cur += ch;
+  }
+  cells.push(cur);
+  return cells.map((c) => c.trim());
+}
 
 export function parseCsv(text: string): ParsedCsv {
   const lines = text
@@ -12,12 +35,12 @@ export function parseCsv(text: string): ParsedCsv {
     .split("\n")
     .filter((l) => l.trim().length > 0);
   if (lines.length === 0) return { headers: [], rows: [] };
-  const headers = lines[0].split(",").map((h) => h.trim());
+  const headers = splitCsvLine(lines[0]);
   const rows = lines.slice(1).map((line) => {
-    const cells = line.split(",");
+    const cells = splitCsvLine(line);
     const row: Record<string, string> = {};
     headers.forEach((h, i) => {
-      row[h] = (cells[i] ?? "").trim();
+      row[h] = cells[i] ?? "";
     });
     return row;
   });

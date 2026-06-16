@@ -81,8 +81,9 @@ function seasonal(i) {
 function round(n) {
   return Math.round(n);
 }
+const csvCell = (v) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 function toCsv(header, rows) {
-  return [header.join(","), ...rows.map((r) => r.join(","))].join("\n") + "\n";
+  return [header.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\n") + "\n";
 }
 function write(name, content) {
   writeFileSync(join(OUT, name), content, "utf8");

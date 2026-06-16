@@ -1,4 +1,4 @@
 plant,name,location,capacity_minutes,target_inv_days
-LYO,Lyon,Lyon, FR,64800,30
-KAR,Karlsruhe,Karlsruhe, DE,57600,30
-BER,Berlin,Berlin, DE,50400,30
+LYO,Lyon,"Lyon, FR",64800,30
+KAR,Karlsruhe,"Karlsruhe, DE",57600,30
+BER,Berlin,"Berlin, DE",50400,30

@@ -25,7 +25,8 @@ const ym = (d) => d.slice(0, 7);
 const priorYear = (yyyymm) => { const [y, m] = yyyymm.split("-"); return `${+y - 1}-${m}`; };
 const round = (n) => Math.round(n);
 const seasonal = (i, amp = 0.12) => 1 + amp * Math.sin(((i + 1) * Math.PI) / 6);
-const toCsv = (h, rows) => [h.join(","), ...rows.map((r) => r.join(","))].join("\n") + "\n";
+const cell = (v) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+const toCsv = (h, rows) => [h.map(cell).join(","), ...rows.map((r) => r.map(cell).join(","))].join("\n") + "\n";
 
 function gen(cfg) {
   const OUT = join(__dirname, "..", "src", "sample-data", cfg.dir);
