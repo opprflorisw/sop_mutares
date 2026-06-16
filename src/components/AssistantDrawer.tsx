@@ -7,7 +7,9 @@ import {
 import ChatMarkdown from "./ChatMarkdown";
 import { aiChat, type AiSource } from "../lib/ai";
 import { useProjectData, fmtMoney, fmtUnits, type ProjectData } from "../lib/projectData";
-import { useProjects } from "../lib/projects";
+import { useProjects, type Project } from "../lib/projects";
+import { profileProject } from "../lib/dataProfile";
+import { tierCatalog, resolveIndustryKey } from "../lib/widgetCatalog";
 import { useAiModel, useChatProfiles, modelLabel, type ChatProfile } from "../lib/settingsStore";
 
 // ============================================================
@@ -23,7 +25,26 @@ const PROFILE_ICON: Record<string, typeof IconChart> = {
   chart: IconChart, sparkles: IconSparkles, file: IconFile, bolt: IconBolt, box: IconBox, users: IconUsers,
 };
 
-function buildContext(project: { name: string } | null, d: ProjectData): string {
+// A compact "what data exists" inventory so the assistant can chat about
+// the dataset itself (coverage, gaps) and which widgets it does/doesn't
+// support — not just the derived numbers.
+function dataInventory(project: Project): string {
+  const profile = profileProject(project);
+  const industry = resolveIndustryKey(project.industry);
+  const { ready, locked } = tierCatalog(profile, industry);
+  const up = profile.templates.filter((t) => t.uploaded)
+    .map((t) => `${t.title} (${t.rows} rows${t.dateCoverage ? `, ${t.dateCoverage.start}..${t.dateCoverage.end}${t.dateCoverage.gaps ? `, ${t.dateCoverage.gaps} gap(s)` : ""}` : ""}, ${t.quality})`)
+    .join("; ");
+  const missing = profile.templates.filter((t) => !t.uploaded).map((t) => t.title).join(", ") || "none";
+  const lockedNote = locked.slice(0, 5).map((l) => `${l.entry.title} (needs ${l.missing.map((m) => m.templateId).join("/")})`).join("; ") || "none";
+  return [
+    `Data inventory — uploaded: ${up || "none"}.`,
+    `Not uploaded: ${missing}.`,
+    `Dashboard widgets: ${ready.length} data-ready, ${locked.length} locked. Locked examples: ${lockedNote}.`,
+  ].join("\n");
+}
+
+function buildContext(project: Project | null, d: ProjectData): string {
   if (!project || !d.hasData) return "No project data loaded yet.";
   const fam = d.families.slice(0, 6).map((f) =>
     `${f.family}: demand ${fmtUnits(f.unconstrained)} / supply ${fmtUnits(f.constrained)} (gap ${f.gapPct.toFixed(0)}%, ${fmtMoney(f.revenueAtRisk, d.currency)} at risk)`
@@ -40,6 +61,7 @@ function buildContext(project: { name: string } | null, d: ProjectData): string 
     `Material / supplier risk: ${mats}.`,
     `Slow / obsolete stock: ${slob}.`,
     `Open issues: ${issues}.`,
+    dataInventory(project),
   ].join("\n");
 }
 
