@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth, type User } from "../lib/auth";
+import { useUserProfile } from "../lib/settingsStore";
 import { Card, CardTitle, Button, Tag } from "../components/ui";
-import { IconPlus, IconUsers } from "../components/icons";
+import { IconPlus, IconUsers, IconUserCircle, IconUpload } from "../components/icons";
 
 export default function AccountManagementPage() {
   const { users, user, createUser, deleteUser } = useAuth();
@@ -33,13 +34,16 @@ export default function AccountManagementPage() {
         <div>
           <h1 className="text-[20px] font-semibold">Account management</h1>
           <p className="text-[13px] text-[var(--color-ink-2)]">
-            Create and manage users who can access the S&OP Planner.
+            Your profile, and the users who can access the S&OP Planner.
           </p>
         </div>
         <Button variant="primary" onClick={() => setOpen((o) => !o)}>
           <IconPlus size={15} /> New account
         </Button>
       </div>
+
+      <MyProfile />
+
 
       {open && (
         <Card className="mb-5">
@@ -156,6 +160,66 @@ export default function AccountManagementPage() {
         </table>
       </Card>
     </div>
+  );
+}
+
+// Your own profile — first/last name + avatar, shown throughout the tool.
+function MyProfile() {
+  const { user } = useAuth();
+  const [profile, setProfile] = useUserProfile();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const seedFirst = profile.firstName ?? user?.name?.split(" ")[0] ?? "";
+  const seedLast = profile.lastName ?? user?.name?.split(" ").slice(1).join(" ") ?? "";
+  const [first, setFirst] = useState(seedFirst);
+  const [last, setLast] = useState(seedLast);
+  const [saved, setSaved] = useState(false);
+
+  function onAvatar(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfile({ ...profile, avatar: String(reader.result) });
+      setSaved(false);
+    };
+    reader.readAsDataURL(file);
+  }
+  function save() {
+    const fullName = `${first.trim()} ${last.trim()}`.trim();
+    setProfile({ ...profile, firstName: first.trim(), lastName: last.trim(), fullName: fullName || profile.fullName });
+    setSaved(true);
+  }
+  const initials = (first || user?.name || "U").slice(0, 1).toUpperCase();
+
+  return (
+    <Card className="mb-5">
+      <CardTitle right={<Tag tone="info">Shown throughout the tool</Tag>}>
+        <span className="flex items-center gap-2"><IconUserCircle size={16} /> My profile</span>
+      </CardTitle>
+      <div className="flex flex-wrap items-start gap-5">
+        {/* avatar */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[var(--color-brand-100)] text-[24px] font-semibold text-[var(--color-brand-700)] ring-1 ring-inset ring-[var(--color-brand-200)]">
+            {profile.avatar ? <img src={profile.avatar} alt="avatar" className="h-full w-full object-cover" /> : initials}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onAvatar(f); e.target.value = ""; }} />
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1 rounded-md border border-[var(--color-line-strong)] px-2 py-1 text-[11px] text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"><IconUpload size={12} /> Upload</button>
+            {profile.avatar && <button onClick={() => setProfile({ ...profile, avatar: null })} className="rounded-md px-2 py-1 text-[11px] text-[var(--color-bad)] hover:underline">Remove</button>}
+          </div>
+        </div>
+        {/* fields */}
+        <div className="min-w-[260px] flex-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="First name"><input value={first} onChange={(e) => { setFirst(e.target.value); setSaved(false); }} className={inputCls} placeholder="Jane" /></Field>
+            <Field label="Last name"><input value={last} onChange={(e) => { setLast(e.target.value); setSaved(false); }} className={inputCls} placeholder="Planner" /></Field>
+          </div>
+          <div className="mt-1 text-[11px] text-[var(--color-ink-3)]">{user?.email}</div>
+          <div className="mt-3 flex items-center gap-2">
+            <Button variant="primary" onClick={save}>Save profile</Button>
+            {saved && <span className="text-[12px] text-[var(--color-good-2)]">Saved ✓</span>}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 

@@ -20,6 +20,12 @@ const num = (s: string | undefined) => {
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 };
+
+/** Public access to a project's active rows for a source (used by custom widgets). */
+export function projectRows(project: Project, templateId: string): Record<string, string>[] {
+  return rowsOf(project, templateId);
+}
+export const toNum = num;
 const ym = (d: string | undefined) => (d ?? "").slice(0, 7);
 
 export type Family = {
@@ -99,6 +105,65 @@ export type MaterialAlert = {
   affects: string;
 };
 
+// ABC/XYZ classification of an item/family by value (Pareto) + variability.
+export type AbcItem = {
+  key: string;
+  label: string;
+  value: number; // annualised demand/sales value
+  share: number; // 0-1 of total
+  cumShare: number; // cumulative 0-1 (for the Pareto curve)
+  klass: "A" | "B" | "C";
+  cv: number; // coefficient of variation of monthly demand
+  xyz: "X" | "Y" | "Z";
+};
+
+// Site-level RCCP roll-up (network → site; G5).
+export type SiteCapacity = {
+  plant: string;
+  name: string;
+  availableMin: number;
+  plannedMin: number;
+  requiredMin: number;
+  util: number; // req / available
+  plannedUtil: number; // req / planned
+  spareMin: number; // planned - required (when positive)
+  overload: boolean;
+  lineCount: number;
+  color: string;
+};
+
+// A costed cross-site reallocation move (G7).
+export type ReallocationMove = {
+  family: string;
+  fromSite: string;
+  toSite: string;
+  units: number;
+  revenueRecovered: number;
+  transferCost: number;
+  net: number;
+  leadTime: string;
+};
+
+export type PortfolioEntry = {
+  item: string;
+  desc: string;
+  type: "NPI" | "EOL";
+  startMonth: string;
+  rampMonths: number;
+  peakUnits: number;
+  cannibalizes: string;
+};
+
+export type BudgetVarianceRow = {
+  family: string;
+  plan: number; // operational plan revenue
+  budget: number; // AOP / budget revenue
+  variance: number;
+  variancePct: number;
+};
+
+export type WeeklyDemand = { week: string; actual: number; plan: number };
+
 export type ProjectData = {
   hasData: boolean;
   currency: string;
@@ -117,6 +182,13 @@ export type ProjectData = {
   // Forecast bias by lag — actual vs the plan as it stood 1 and 2 months out (illustrative).
   forecastLag: { m: string; actual: number; lag1: number; lag2: number }[];
   plannedCapacityPct: number; // planning % applied to available demonstrated capacity
+  // --- network / depth additions (G1, G3, G4, G5, G7) ---
+  abc: AbcItem[];
+  sites: SiteCapacity[];
+  reallocations: ReallocationMove[];
+  portfolio: PortfolioEntry[];
+  budgetVariance: BudgetVarianceRow[];
+  demandControl: WeeklyDemand[];
   kpis: {
     revenueProjection: number;
     contributionMargin: number; // 12m CM value on the demand plan
@@ -139,6 +211,212 @@ export type ProjectData = {
 // the plan is built on a haircut of it. 0.85 is a sensible default.
 export const PLANNED_CAPACITY_PCT = 0.85;
 
+// ---- ABC/XYZ (G4) ---- classify entities by value (Pareto) + variability.
+export function classifyAbc(
+  entries: { key: string; label: string; value: number }[],
+  series?: Map<string, number[]>
+): AbcItem[] {
+  const sorted = [...entries].filter((e) => e.value > 0).sort((a, b) => b.value - a.value);
+  const total = sorted.reduce((s, e) => s + e.value, 0) || 1;
+  let cum = 0;
+  return sorted.map((e) => {
+    cum += e.value;
+    const cumShare = cum / total;
+    const klass: AbcItem["klass"] = cumShare <= 0.8 ? "A" : cumShare <= 0.95 ? "B" : "C";
+    const vals = series?.get(e.key) ?? [];
+    const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const variance = vals.length ? vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length : 0;
+    const cv = mean ? Math.sqrt(variance) / mean : 0;
+    const xyz: AbcItem["xyz"] = cv <= 0.25 ? "X" : cv <= 0.5 ? "Y" : "Z";
+    return { key: e.key, label: e.label, value: e.value, share: e.value / total, cumShare, klass, cv: +cv.toFixed(2), xyz };
+  });
+}
+
+// ---- Weekly Demand Control (G2): a short-term 4-week horizon (illustrative
+// split of the monthly plan vs recent run-rate) distinct from the monthly cycle.
+function weeklyControl(series: { rev: number; actual: boolean }[]): WeeklyDemand[] {
+  const lastActual = [...series].reverse().find((p) => p.actual)?.rev ?? 0;
+  const firstFc = series.find((p) => !p.actual)?.rev ?? lastActual;
+  const planWk = firstFc / 4;
+  return [1, 2, 3, 4].map((w) => ({ week: `Wk ${w}`, actual: Math.round((lastActual / 4) * (0.96 + 0.02 * w)), plan: Math.round(planWk) }));
+}
+
+// ============================================================
+// Canonical-floor data path — derives the same ProjectData shape from the
+// universal floor files (items / sales / plan / inventory), so any
+// customer's basic data lights up the Universal widgets. No capacity or
+// BOM here (those are industry layers), so capacity/material widgets stay
+// empty for a floor-only project.
+// ============================================================
+function computeFloorData(project: Project): ProjectData {
+  const currency = project.currency;
+  const itemRows = rowsOf(project, "items");
+  const salesRows = rowsOf(project, "sales");
+  const planRows = rowsOf(project, "plan");
+  const invRows = rowsOf(project, "inventory_simple");
+
+  const items = itemRows.map((r) => ({ sku: r.item_id, desc: r.name, family: r.category, price: num(r.unit_price), cost: num(r.unit_cost) }));
+  const byId = new Map(items.map((s) => [s.sku, s]));
+  const cats = [...new Set(items.map((s) => s.family))];
+  const color = new Map(cats.map((c, i) => [c, PALETTE[i % PALETTE.length]]));
+  const monthOf = (r: Record<string, string>) => (r.month ?? "").slice(0, 7);
+
+  const salesMonths = [...new Set(salesRows.map(monthOf).filter(Boolean))].sort();
+  const planMonths = [...new Set(planRows.map(monthOf).filter(Boolean))].sort();
+  const lastSales = salesMonths[salesMonths.length - 1] ?? "";
+  const futurePlanMonths = planMonths.filter((m) => m > lastSales);
+  const horizonPlan = futurePlanMonths.length ? futurePlanMonths : planMonths;
+
+  // ---- families (plan over the horizon) ----
+  const famUnits = new Map<string, number>(), famWP = new Map<string, { v: number; q: number }>(), famWC = new Map<string, { v: number; q: number }>();
+  for (const r of planRows) {
+    if (!horizonPlan.includes(monthOf(r))) continue;
+    const s = byId.get(r.item_id); if (!s) continue;
+    const q = num(r.planned_units);
+    famUnits.set(s.family, (famUnits.get(s.family) ?? 0) + q);
+    const wp = famWP.get(s.family) ?? { v: 0, q: 0 }; wp.v += q * s.price; wp.q += q; famWP.set(s.family, wp);
+    const wc = famWC.get(s.family) ?? { v: 0, q: 0 }; wc.v += q * s.cost; wc.q += q; famWC.set(s.family, wc);
+  }
+  const familyData: Family[] = cats.map((fam) => {
+    const unconstrained = famUnits.get(fam) ?? 0;
+    const wp = famWP.get(fam) ?? { v: 0, q: 1 }; const price = wp.q ? wp.v / wp.q : 0;
+    const wc = famWC.get(fam) ?? { v: 0, q: 1 }; const cost = wc.q ? wc.v / wc.q : 0;
+    const unitMargin = price - cost;
+    return {
+      family: fam, color: color.get(fam)!, unconstrained, constrained: unconstrained, price, cost,
+      cmPct: price ? (unitMargin / price) * 100 : 0, cmValue: unconstrained * unitMargin,
+      gapUnits: 0, gapPct: 0, demandValue: unconstrained * price, supplyValue: unconstrained * price,
+      revenueAtRisk: 0, cmAtRisk: 0,
+    };
+  }).sort((a, b) => b.demandValue - a.demandValue);
+  const totalDemandValueAll = familyData.reduce((s, f) => s + f.demandValue, 0);
+  const totalCmValueAll = familyData.reduce((s, f) => s + f.cmValue, 0);
+  const blendedCmPct = totalDemandValueAll ? totalCmValueAll / totalDemandValueAll : 0;
+
+  // ---- monthly revenue series (actuals + forward plan) ----
+  const revByMonth = new Map<string, number>();
+  for (const r of salesRows) revByMonth.set(monthOf(r), (revByMonth.get(monthOf(r)) ?? 0) + num(r.revenue));
+  const planValByMonth = new Map<string, number>();
+  for (const r of planRows) { const s = byId.get(r.item_id); if (!s) continue; const k = monthOf(r); planValByMonth.set(k, (planValByMonth.get(k) ?? 0) + num(r.planned_units) * s.price); }
+  const histSet = new Set(salesMonths);
+  const allMonths = [...new Set([...salesMonths, ...futurePlanMonths])].sort();
+  const demandSeries = allMonths.map((m) => {
+    const rev = histSet.has(m) ? (revByMonth.get(m) ?? 0) : (planValByMonth.get(m) ?? 0);
+    return { m, rev, cm: rev * blendedCmPct, actual: histSet.has(m) };
+  });
+
+  // ---- accuracy: plan vs actual units on overlapping months ----
+  const actualUnits = new Map<string, number>(), planUnits = new Map<string, number>();
+  for (const r of salesRows) { const k = `${r.item_id}|${monthOf(r)}`; actualUnits.set(k, (actualUnits.get(k) ?? 0) + num(r.units)); }
+  for (const r of planRows) { const k = `${r.item_id}|${monthOf(r)}`; planUnits.set(k, (planUnits.get(k) ?? 0) + num(r.planned_units)); }
+  const overlap = salesMonths.filter((m) => planMonths.includes(m));
+  const skuAccuracy: SkuAccuracy[] = items.map((s) => {
+    let errSum = 0, n = 0, fSum = 0, aSum = 0;
+    for (const m of overlap) {
+      const a = actualUnits.get(`${s.sku}|${m}`); const f = planUnits.get(`${s.sku}|${m}`);
+      if (a === undefined || f === undefined || a === 0) continue;
+      errSum += Math.abs(f - a) / a; n++; fSum += f; aSum += a;
+    }
+    const mape = n ? (errSum / n) * 100 : 0; const bias = aSum ? ((fSum - aSum) / aSum) * 100 : 0;
+    const status: SkuAccuracy["status"] = mape > 15 ? "bad" : mape > 10 ? "warn" : "good";
+    return {
+      sku: s.sku, desc: s.desc, mape: +mape.toFixed(1), bias: +bias.toFixed(1), status,
+      state: status === "good" ? "Approved" : status === "warn" ? "Pending" : "Override",
+      action: status === "good" ? "Stable. Maintain plan." : status === "warn" ? "Drift vs plan — validate mix." : "High error vs plan. Recalibrate.",
+    };
+  }).sort((a, b) => b.mape - a.mape);
+  const validAcc = skuAccuracy.filter((a) => a.mape > 0);
+  const forecastAccuracy = validAcc.length ? Math.round(100 - validAcc.reduce((s, a) => s + a.mape, 0) / validAcc.length) : 0;
+  const forecastBias = validAcc.length ? +(validAcc.reduce((s, a) => s + a.bias, 0) / validAcc.length).toFixed(1) : 0;
+
+  // ---- demand mix (channel if present, else region) ----
+  const mixKey = salesRows.some((r) => r.channel) ? "channel" : "region";
+  const mixQty = new Map<string, number>();
+  for (const r of salesRows) { const k = r[mixKey] || "—"; mixQty.set(k, (mixQty.get(k) ?? 0) + num(r.units)); }
+  const totalMix = [...mixQty.values()].reduce((a, b) => a + b, 0) || 1;
+  const customerMix = [...mixQty.entries()].sort((a, b) => b[1] - a[1]).map(([name, q], i) => ({ name, share: q / totalMix, color: PALETTE[i % PALETTE.length] }));
+
+  // ---- inventory (from the simple inventory file) ----
+  const invMonths = [...new Set(invRows.map(monthOf).filter(Boolean))].sort();
+  const lastInv = invMonths[invMonths.length - 1] ?? "";
+  const invLatest = invRows.filter((r) => monthOf(r) === lastInv);
+  const invTotalAll = invLatest.reduce((s, r) => s + num(r.on_hand_value), 0);
+  let cogs = 0; for (const r of salesRows) { const s = byId.get(r.item_id); if (s) cogs += num(r.units) * s.cost; }
+  const monthsCount = Math.max(1, salesMonths.length);
+  const annualCogs = cogs * (12 / monthsCount);
+  const perDay = annualCogs / 365;
+  const invDays = perDay ? invTotalAll / perDay : 0;
+  const inventoryTurns = invTotalAll ? +(annualCogs / invTotalAll).toFixed(1) : 0;
+  const inventoryTarget = 40;
+  const plants: PlantInv[] = invTotalAll > 0 ? [{ code: "FG", name: "Finished goods", rm: 0, wip: 0, fg: invTotalAll, invTotal: invTotalAll, invDays: +invDays.toFixed(1), utilisation: 0, color: PALETTE[0] }] : [];
+
+  // ---- SLOB ----
+  const salesUnitsByItem = new Map<string, number>();
+  for (const r of salesRows) salesUnitsByItem.set(r.item_id, (salesUnitsByItem.get(r.item_id) ?? 0) + num(r.units));
+  const slob: SlobItem[] = invLatest.map((r) => {
+    const s = byId.get(r.item_id);
+    const avgMonthly = (salesUnitsByItem.get(r.item_id) ?? 0) / monthsCount;
+    const qty = num(r.on_hand_units);
+    const monthsCover = avgMonthly > 0 ? qty / avgMonthly : Infinity;
+    const status: SlobItem["status"] | null = avgMonthly === 0 ? "obsolete" : monthsCover > 4 ? "slow" : null;
+    if (!status || qty <= 0) return null;
+    return { sku: r.item_id, desc: s?.desc ?? r.item_id, plant: "FG", value: num(r.on_hand_value), qty, monthsCover: monthsCover === Infinity ? 99 : +monthsCover.toFixed(1), status };
+  }).filter(Boolean) as SlobItem[];
+  slob.sort((a, b) => b.value - a.value);
+  const slobValue = slob.reduce((s, x) => s + x.value, 0);
+
+  // ---- inventory projection ----
+  const inventoryProjection: ProjectData["inventoryProjection"] = [];
+  if (invTotalAll > 0 && perDay > 0) {
+    inventoryProjection.push({ m: lastInv || "now", days: +invDays.toFixed(1), value: invTotalAll, planned: false });
+    const valuePerDay = invDays ? invTotalAll / invDays : perDay;
+    let days = invDays; const reducing = invDays > inventoryTarget;
+    for (const m of futurePlanMonths.slice(0, 3)) { if (reducing) days = days + (inventoryTarget - days) / 3; inventoryProjection.push({ m, days: +days.toFixed(1), value: Math.round(days * valuePerDay), planned: true }); }
+  }
+
+  // ---- forecast lag (illustrative) ----
+  const biasFrac = forecastBias / 100; const accErr = (100 - forecastAccuracy) / 100;
+  const forecastLag = salesMonths.slice(-6).map((m, i) => { const actual = revByMonth.get(m) ?? 0; const dir = i % 2 === 0 ? 1 : -1; return { m, actual, lag1: Math.round(actual * (1 + biasFrac * 0.6)), lag2: Math.round(actual * (1 + biasFrac + dir * accErr * 0.6)) }; });
+
+  const revenueProjection = horizonPlan.reduce((s, m) => s + (planValByMonth.get(m) ?? 0), 0);
+
+  const issues: Issue[] = [];
+  const worst = skuAccuracy[0];
+  if (worst && worst.mape > 12) issues.push({ severity: "medium", title: `Forecast error on ${worst.sku}`, detail: `MAPE ${worst.mape}% vs plan. ${worst.action}`, valueAtRisk: 0 });
+  if (slobValue > 0) issues.push({ severity: "high", title: "Slow / obsolete stock", detail: `${slob.length} item(s) over cover or not selling.`, valueAtRisk: Math.round(slobValue / 1000) });
+
+  // ABC/XYZ + weekly control on the floor data
+  const itemValueAbc = new Map<string, number>();
+  for (const r of salesRows) itemValueAbc.set(r.item_id, (itemValueAbc.get(r.item_id) ?? 0) + num(r.revenue));
+  const fIdx = new Map(salesMonths.map((m, i) => [m, i]));
+  const itemSeries = new Map<string, number[]>();
+  for (const r of salesRows) { const arr = itemSeries.get(r.item_id) ?? new Array(salesMonths.length).fill(0); const i = fIdx.get(monthOf(r)); if (i != null) arr[i] += num(r.units); itemSeries.set(r.item_id, arr); }
+  const abc = classifyAbc([...itemValueAbc.entries()].map(([key, value]) => ({ key, label: byId.get(key)?.desc ?? key, value })), itemSeries);
+  const demandControl = weeklyControl(demandSeries);
+  const budgetByFamF = new Map<string, number>();
+  for (const r of projectRows(project, "budget")) budgetByFamF.set(r.family, (budgetByFamF.get(r.family) ?? 0) + num(r.budget_revenue));
+  const budgetVariance: BudgetVarianceRow[] = budgetByFamF.size
+    ? familyData.map((f) => { const budget = budgetByFamF.get(f.family) ?? 0; const plan = f.demandValue; return { family: f.family, plan, budget, variance: plan - budget, variancePct: budget ? ((plan - budget) / budget) * 100 : 0 }; })
+    : [];
+  const portfolio: PortfolioEntry[] = projectRows(project, "portfolio").map((r) => ({
+    item: r.item, desc: byId.get(r.item)?.desc ?? r.item,
+    type: r.type === "EOL" ? "EOL" : "NPI", startMonth: r.start_month ?? "", rampMonths: num(r.ramp_months), peakUnits: num(r.peak_units), cannibalizes: r.cannibalizes ?? "",
+  }));
+
+  return {
+    hasData: true, currency,
+    families: familyData, capacityLines: [], plants, skuAccuracy, customerMix, demandSeries,
+    capacitySchedule: { periods: [], rows: [] }, materialAlerts: [], issues, slob,
+    inventoryProjection, forecastLag, plannedCapacityPct: PLANNED_CAPACITY_PCT,
+    abc, sites: [], reallocations: [], portfolio, budgetVariance, demandControl,
+    kpis: {
+      revenueProjection, contributionMargin: totalCmValueAll, cmPct: +(blendedCmPct * 100).toFixed(1),
+      forecastAccuracy, forecastBias, inventoryDays: +invDays.toFixed(1), inventoryTarget, inventoryTurns,
+      capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue, overloadedLines: 0,
+    },
+  };
+}
+
 export function computeProjectData(project: Project | null): ProjectData {
   const empty: ProjectData = {
     hasData: false,
@@ -147,6 +425,7 @@ export function computeProjectData(project: Project | null): ProjectData {
     customerMix: [], demandSeries: [], capacitySchedule: { periods: [], rows: [] }, materialAlerts: [],
     issues: [], slob: [], inventoryProjection: [], forecastLag: [],
     plannedCapacityPct: PLANNED_CAPACITY_PCT,
+    abc: [], sites: [], reallocations: [], portfolio: [], budgetVariance: [], demandControl: [],
     kpis: { revenueProjection: 0, contributionMargin: 0, cmPct: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, inventoryTurns: 0, capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue: 0, overloadedLines: 0 },
   };
   if (!project) return empty;
@@ -157,7 +436,12 @@ export function computeProjectData(project: Project | null): ProjectData {
   const invRows = rowsOf(project, "inventory");
   const capRows = rowsOf(project, "capacity");
   const plantRows = rowsOf(project, "plant_master");
-  if (skuRows.length === 0) return { ...empty, currency: project.currency };
+  if (skuRows.length === 0) {
+    // Canonical-floor projects (items / sales / plan) compute via a
+    // dedicated universal path so their Universal widgets populate.
+    if (rowsOf(project, "items").length > 0) return computeFloorData(project);
+    return { ...empty, currency: project.currency };
+  }
 
   // ---- SKU master ----
   const skus = skuRows.map((r) => ({
@@ -479,6 +763,73 @@ export function computeProjectData(project: Project | null): ProjectData {
   if (worstSku && worstSku.mape > 12)
     issues.push({ severity: "medium", title: `Forecast error on ${worstSku.sku}`, detail: `MAPE ${worstSku.mape}% vs prior year. ${worstSku.action}`, valueAtRisk: 0 });
 
+  // ---- ABC/XYZ (G4): SKU value (Pareto) + monthly variability ----
+  const skuValue = new Map<string, number>();
+  for (const r of fcRows) { const s = skuByCode.get(r.sku); if (s) skuValue.set(r.sku, (skuValue.get(r.sku) ?? 0) + num(r.baseline_qty) * s.price); }
+  const accMonths = [...new Set(salesRows.map((r) => ym(r.date)))].sort();
+  const accIdx = new Map(accMonths.map((m, i) => [m, i]));
+  const skuSeries = new Map<string, number[]>();
+  for (const r of salesRows) { const arr = skuSeries.get(r.sku) ?? new Array(accMonths.length).fill(0); const i = accIdx.get(ym(r.date)); if (i != null) arr[i] += num(r.qty); skuSeries.set(r.sku, arr); }
+  const abc = classifyAbc([...skuValue.entries()].map(([key, value]) => ({ key, label: skuByCode.get(key)?.desc ?? key, value })), skuSeries);
+
+  // ---- Site capacity roll-up (G5) ----
+  const sites: SiteCapacity[] = [...new Set(capLatest.map((r) => r.plant))].map((plant, i) => {
+    const lines = capLatest.filter((r) => r.plant === plant);
+    const avail = lines.reduce((s, r) => s + num(r.available_min), 0);
+    const planned = avail * PLANNED_CAPACITY_PCT;
+    const req = lines.reduce((s, r) => s + num(r.required_min), 0);
+    return {
+      plant, name: plantNames.get(plant) ?? plant, availableMin: avail, plannedMin: planned, requiredMin: req,
+      util: avail ? (req / avail) * 100 : 0, plannedUtil: planned ? (req / planned) * 100 : 0,
+      spareMin: Math.max(0, planned - req), overload: req > avail, lineCount: lines.length, color: PALETTE[i % PALETTE.length],
+    };
+  }).sort((a, b) => b.plannedUtil - a.plannedUtil);
+
+  // ---- Cross-site reallocation (G7): move a constrained family's gap to a qualified spare site ----
+  const spRows = rowsOf(project, "site_product");
+  const qualified = (fam: string, plant: string): boolean => {
+    if (spRows.length) return spRows.some((r) => (r.family === fam || r.sku === fam) && r.plant === plant && /^(1|y|yes|true)$/i.test(r.qualified ?? "1"));
+    // infer: a site is qualified for a family if it produces any SKU of it
+    return skus.some((s) => s.family === fam && s.plant === plant);
+  };
+  const transferFor = (fam: string, plant: string) => {
+    const row = spRows.find((r) => (r.family === fam || r.sku === fam) && r.plant === plant);
+    return { cost: row ? num(row.transfer_cost) : 0, lead: row?.lead_time_days ? `${row.lead_time_days}d` : "2–4 wks" };
+  };
+  const reallocations: ReallocationMove[] = [];
+  // A-items first: order constrained families by ABC value
+  const famValue = new Map<string, number>();
+  for (const f of familyData) famValue.set(f.family, f.demandValue);
+  const constrained = familyData.filter((f) => f.gapUnits > 0).sort((a, b) => (famValue.get(b.family)! - famValue.get(a.family)!));
+  for (const f of constrained) {
+    const dom = (() => { const m = familyPlantUnits.get(f.family); let p = "", q = -1; if (m) for (const [pl, qq] of m) if (qq > q) { q = qq; p = pl; } return p; })();
+    const spare = sites.find((s) => s.spareMin > 0 && s.plant !== dom && qualified(f.family, s.plant));
+    if (!spare) continue;
+    const units = f.gapUnits;
+    const rev = units * f.price;
+    const { cost, lead } = transferFor(f.family, spare.plant);
+    const transferCost = cost ? cost * units : rev * 0.05;
+    reallocations.push({ family: f.family, fromSite: dom || "—", toSite: spare.plant, units, revenueRecovered: rev, transferCost, net: rev - transferCost, leadTime: lead });
+  }
+  reallocations.sort((a, b) => b.net - a.net);
+
+  // ---- Plan vs budget (G3) ----
+  const budgetRows = rowsOf(project, "budget");
+  const budgetByFam = new Map<string, number>();
+  for (const r of budgetRows) budgetByFam.set(r.family, (budgetByFam.get(r.family) ?? 0) + num(r.budget_revenue));
+  const budgetVariance: BudgetVarianceRow[] = budgetByFam.size
+    ? familyData.map((f) => { const budget = budgetByFam.get(f.family) ?? 0; const plan = f.demandValue; return { family: f.family, plan, budget, variance: plan - budget, variancePct: budget ? ((plan - budget) / budget) * 100 : 0 }; })
+    : [];
+
+  // ---- Portfolio (G1) ----
+  const portfolio: PortfolioEntry[] = rowsOf(project, "portfolio").map((r) => ({
+    item: r.item, desc: skuByCode.get(r.item)?.desc ?? r.item,
+    type: r.type === "EOL" ? "EOL" : "NPI", startMonth: r.start_month ?? "", rampMonths: num(r.ramp_months), peakUnits: num(r.peak_units), cannibalizes: r.cannibalizes ?? "",
+  }));
+
+  // ---- Weekly Demand Control (G2, short-term horizon, illustrative from monthly) ----
+  const demandControl = weeklyControl(demandSeries);
+
   return {
     hasData: true,
     currency: project.currency,
@@ -495,6 +846,7 @@ export function computeProjectData(project: Project | null): ProjectData {
     inventoryProjection,
     forecastLag,
     plannedCapacityPct: PLANNED_CAPACITY_PCT,
+    abc, sites, reallocations, portfolio, budgetVariance, demandControl,
     kpis: { revenueProjection, contributionMargin, cmPct: +(blendedCmPct * 100).toFixed(1), forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, inventoryTurns, capacityUtil, plannedCapacityUtil, revenueAtRisk, slobValue, overloadedLines },
   };
 }

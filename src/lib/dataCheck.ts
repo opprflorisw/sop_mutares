@@ -1,4 +1,4 @@
-import { TEMPLATES, type Requirement } from "./templates";
+import { templatesForProject, type Requirement } from "./templates";
 import { parseCsv } from "./csv";
 import { activeVersion, findFile, type Project } from "./projects";
 
@@ -36,6 +36,7 @@ function columnValues(content: string, col: string): string[] {
 
 export function runDataCheck(project: Project): DataCheckResult {
   const findings: Finding[] = [];
+  const pool = templatesForProject(project);
 
   // ---- completeness by requirement level ----
   const levels: Requirement[] = ["required", "recommended", "optional"];
@@ -44,7 +45,7 @@ export function runDataCheck(project: Project): DataCheckResult {
     recommended: { present: 0, total: 0, missing: [] as string[] },
     optional: { present: 0, total: 0, missing: [] as string[] },
   };
-  for (const t of TEMPLATES) {
+  for (const t of pool) {
     const present = !!activeContent(project, t.id);
     const bucket = completeness[t.requirement];
     bucket.total++;
@@ -68,7 +69,7 @@ export function runDataCheck(project: Project): DataCheckResult {
   }
 
   // ---- per-file validation + time gaps ----
-  for (const t of TEMPLATES) {
+  for (const t of pool) {
     const file = findFile(project, t.id);
     if (!file) continue;
     const v = activeVersion(file);
