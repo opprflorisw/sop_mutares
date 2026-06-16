@@ -13,7 +13,6 @@ import {
 // ============================================================
 
 export default function DashboardUnderstandingPage() {
-  const [view, setView] = useState<"explore" | "matrix">("explore");
   const [moduleKey, setModuleKey] = useState<ModuleKey>("overview");
   const [layer, setLayer] = useState<Layer>("core");
   const [industry, setIndustry] = useState<IndustryKey>("discrete");
@@ -24,32 +23,15 @@ export default function DashboardUnderstandingPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[20px] font-semibold">Dashboard Understanding</h1>
-          <p className="text-[12.5px] text-[var(--color-ink-2)]">
-            What belongs on each S&OP module — and how depth layers from a common core toward industry- and company-specific detail.
-          </p>
-        </div>
-        <div className="flex rounded-md border border-[var(--color-line-strong)] p-0.5 text-[12px]">
-          {(["explore", "matrix"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`rounded px-3 py-1 capitalize transition-colors ${view === v ? "bg-[var(--color-brand-600)] font-medium text-white" : "text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"}`}
-            >
-              {v === "matrix" ? "Matrix" : "Explore"}
-            </button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-[20px] font-semibold">Dashboard model</h1>
+        <p className="text-[12.5px] text-[var(--color-ink-2)]">
+          A reference library of what belongs on each S&OP module, layered from a common core toward industry- and company-specific depth. Browse it to understand the building blocks behind the dashboards.
+        </p>
       </div>
 
       <LayerPhilosophy />
 
-      {view === "matrix" ? (
-        <MatrixView industry={industry} setIndustry={setIndustry} onOpen={(mk, l) => { setModuleKey(mk); setLayer(l); setView("explore"); }} />
-      ) : (
-      <>
       {/* module selector */}
       <div className="flex flex-wrap gap-2">
         {MODULES.map((mod) => {
@@ -142,102 +124,7 @@ export default function DashboardUnderstandingPage() {
           <p className="mt-3 text-[12px] text-[var(--color-ink-3)]">No industry-specific additions modelled here yet.</p>
         )}
       </Card>
-
-      </>
-      )}
-
-      <p className="text-[11px] text-[var(--color-ink-3)]">
-        Reference model — edit <span className="font-mono">src/lib/dashboardModel.ts</span> to refine what sits in each layer.
-        Sources: the S&OP process reference, Varun's v5 EU dashboard, and industry demand/supply/capacity research.
-      </p>
     </div>
-  );
-}
-
-// Whole-portfolio view: modules × layers, element counts + live/planned,
-// so you can see the layering shape and roadmap at a glance.
-function MatrixView({
-  industry, setIndustry, onOpen,
-}: {
-  industry: IndustryKey;
-  setIndustry: (k: IndustryKey) => void;
-  onOpen: (m: ModuleKey, l: Layer) => void;
-}) {
-  const live = (els: DashElement[]) => els.filter((e) => e.status === "live").length;
-  return (
-    <Card pad={false}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-line)] px-4 py-3">
-        <span className="text-[13px] font-semibold">All modules × layers</span>
-        <div className="flex flex-wrap gap-1.5">
-          {INDUSTRIES.map((ind) => (
-            <button
-              key={ind.key}
-              onClick={() => setIndustry(ind.key)}
-              title={ind.archetype}
-              className={`rounded-full border px-2 py-0.5 text-[10.5px] transition-colors ${
-                ind.key === industry ? "border-[var(--color-accent)] bg-[#EEEDFE] font-medium text-[#3C3489]" : "border-[var(--color-line-strong)] text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
-              }`}
-            >
-              {ind.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-[12px]">
-          <thead className="text-[11px] text-[var(--color-ink-2)]">
-            <tr className="border-b border-[var(--color-line)]">
-              <th className="px-4 py-2 font-medium">Module</th>
-              {LAYERS.map((l) => (
-                <th key={l.key} className="px-3 py-2 font-medium">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-sm" style={{ background: l.color }} />
-                    {l.label}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {MODULES.map((mod) => {
-              const cells: { layer: Layer; els: DashElement[] }[] = [
-                { layer: "core", els: mod.core },
-                { layer: "industry", els: mod.industry[industry] },
-                { layer: "specialized", els: mod.specialized },
-              ];
-              return (
-                <tr key={mod.key} className="border-b border-[var(--color-line)] last:border-0 align-top">
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-1.5 font-semibold"><span>{mod.emoji}</span>{mod.label}</div>
-                    <div className="text-[10px] text-[var(--color-ink-3)]">{mod.step}</div>
-                  </td>
-                  {cells.map((c) => (
-                    <td key={c.layer} className="px-3 py-2.5">
-                      <button onClick={() => onOpen(mod.key, c.layer)} className="group block w-full text-left">
-                        <div className="mb-1 flex items-center gap-1.5">
-                          <span className="text-[12px] font-semibold text-[var(--color-ink)] group-hover:text-[var(--color-brand-700)]">{c.els.length}</span>
-                          {live(c.els) > 0 && <Tag tone="good">{live(c.els)} live</Tag>}
-                        </div>
-                        <div className="space-y-0.5">
-                          {c.els.slice(0, 4).map((e) => (
-                            <div key={e.name} className="truncate text-[10.5px] text-[var(--color-ink-2)]">· {e.name}</div>
-                          ))}
-                          {c.els.length > 4 && <div className="text-[10.5px] text-[var(--color-ink-3)]">+{c.els.length - 4} more…</div>}
-                          {c.els.length === 0 && <div className="text-[10.5px] text-[var(--color-ink-3)]">—</div>}
-                        </div>
-                      </button>
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="border-t border-[var(--color-line)] px-4 py-2 text-[11px] text-[var(--color-ink-3)]">
-        Counts are elements modelled per layer (Industry column reflects the selected archetype). Click any cell to open it in Explore.
-      </p>
-    </Card>
   );
 }
 

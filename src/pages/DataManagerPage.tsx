@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import {
   useProjects, activeVersion, findFile,
   type FileVersion, type Project, type ProjectFile,
 } from "../lib/projects";
 import {
-  TEMPLATES, REQUIREMENT_META, templateToCsv, detectTemplate,
+  REQUIREMENT_META, templateToCsv, detectTemplate, templatesForProject,
   type DataTemplate, type Requirement,
 } from "../lib/templates";
 import { parseCsv, triggerDownload } from "../lib/csv";
-import { checkDrift } from "../lib/dataProfile";
+import { checkDrift, appendMerge } from "../lib/dataProfile";
 import { runDataCheck, type DataCheckResult } from "../lib/dataCheck";
 import { aiDataNarrative, type AiSource } from "../lib/ai";
 import { Card, CardTitle, Button, Tag } from "../components/ui";
 import CsvModal from "../components/CsvModal";
 import {
-  IconArrowLeft, IconArrowRight, IconUpload, IconDownload,
+  IconUpload, IconDownload, IconX, IconTrash, IconPlus,
   IconFile, IconSparkles, IconDots, IconEye, IconSpinner,
 } from "../components/icons";
 
@@ -45,76 +44,21 @@ function fmtDate(ts: number) {
 
 type ModalState = { template: DataTemplate; version: FileVersion } | null;
 
-export default function DataManagerPage() {
-  const { id } = useParams();
-  const { projects, setActiveProject, addFileVersion } = useProjects();
-  const navigate = useNavigate();
-  const project = projects.find((p) => p.id === id);
-
-  const smartInput = useRef<HTMLInputElement>(null);
-  const [smartMsg, setSmartMsg] = useState<string | null>(null);
+export function ProjectDataManager({ project }: { project: Project }) {
   const [modal, setModal] = useState<ModalState>(null);
-
-  if (!project) {
-    return (
-      <div>
-        <Button onClick={() => navigate("/workspace")}><IconArrowLeft size={14} /> Back</Button>
-        <p className="mt-4 text-[13px] text-[var(--color-ink-2)]">Project not found.</p>
-      </div>
-    );
-  }
-
-  async function onSmartUpload(file: File) {
-    const text = await file.text();
-    const { headers } = parseCsv(text);
-    const match = detectTemplate(headers);
-    if (!match) {
-      setSmartMsg(`Couldn't match "${file.name}" to a template. Check the header row.`);
-      return;
-    }
-    await addFileVersion(project!.id, match.template.id, file.name, text);
-    setSmartMsg(`Matched "${file.name}" → ${match.template.title} (${Math.round(match.score * 100)}% column match) and filed it as a new version.`);
-  }
+  const pool = templatesForProject(project);
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => navigate("/workspace")} className="flex items-center gap-1.5 rounded-md border border-[var(--color-line-strong)] px-2.5 py-1.5 text-[12px] text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]">
-          <IconArrowLeft size={14} /> Projects
-        </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-[20px] font-semibold">{project.name}</h1>
-          <p className="text-[12.5px] text-[var(--color-ink-2)]">{project.industry} · {project.factory}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button onClick={() => navigate(`/workspace/project/${project.id}/setup`)}>
-            <IconSparkles size={14} /> Set up dashboards
-          </Button>
-          <Button variant="primary" onClick={() => { setActiveProject(project.id); navigate("/tool/overview"); }}>
-            Open S&OP tool <IconArrowRight size={14} />
-          </Button>
-        </div>
-      </div>
-
-      <ScenarioBackground project={project} />
       <ReadinessBar project={project} />
       <AiCheckPanel project={project} />
 
-      {/* smart upload */}
-      <Card>
-        <CardTitle right={<Tag tone="info">AI mix & match</Tag>}>Smart upload — drop any file, we route it</CardTitle>
-        <p className="mb-3 text-[12.5px] text-[var(--color-ink-2)]">
-          Upload a CSV and the system matches its columns to the right template automatically, validates it, and files it as a new version (superseding the old one — older versions stay available below).
-        </p>
-        <input ref={smartInput} type="file" accept=".csv,text/csv" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) onSmartUpload(f); e.target.value = ""; }} />
-        <Button onClick={() => smartInput.current?.click()}><IconUpload size={14} /> Choose a CSV</Button>
-        {smartMsg && <div className="mt-3 rounded-md bg-[var(--color-brand-50)] px-3 py-2 text-[12px] text-[var(--color-brand-700)]">{smartMsg}</div>}
-      </Card>
+      <MultiUpload project={project} pool={pool} />
 
       {/* file table grouped by requirement level */}
       {LEVELS.map((level) => {
-        const templates = TEMPLATES.filter((t) => t.requirement === level);
+        const templates = pool.filter((t) => t.requirement === level);
+        if (templates.length === 0) return null;
         return (
           <section key={level}>
             <div className="mb-2 flex items-center gap-2">
@@ -152,6 +96,131 @@ export default function DataManagerPage() {
   );
 }
 
+// Multi-file "mix & match": drop several CSVs at once, we auto-match each
+// to a dataset by its columns, you review/override the mapping, then file
+// them all in one go.
+type Staged = {
+  id: string;
+  fileName: string;
+  text: string;
+  rows: number;
+  detectedId: string | null;
+  score: number;
+  chosenId: string;
+};
+
+function MultiUpload({ project, pool }: { project: Project; pool: DataTemplate[] }) {
+  const { addFileVersion } = useProjects();
+  const input = useRef<HTMLInputElement>(null);
+  const [staged, setStaged] = useState<Staged[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+
+  async function onFiles(files: FileList) {
+    const added: Staged[] = [];
+    let i = 0;
+    for (const file of Array.from(files)) {
+      const text = await file.text();
+      const { headers, rows } = parseCsv(text);
+      const match = detectTemplate(headers, pool);
+      added.push({
+        id: `${file.name}-${Date.now()}-${i++}`,
+        fileName: file.name,
+        text,
+        rows: rows.length,
+        detectedId: match?.template.id ?? null,
+        score: match?.score ?? 0,
+        chosenId: match && match.score >= 0.6 ? match.template.id : "",
+      });
+    }
+    setStaged((prev) => [...prev, ...added]);
+    setSummary(null);
+  }
+
+  const setChoice = (id: string, chosenId: string) =>
+    setStaged((prev) => prev.map((s) => (s.id === id ? { ...s, chosenId } : s)));
+  const removeStaged = (id: string) => setStaged((prev) => prev.filter((s) => s.id !== id));
+
+  async function commit() {
+    setBusy(true);
+    const toAdd = staged.filter((s) => s.chosenId);
+    for (const s of toAdd) await addFileVersion(project.id, s.chosenId, s.fileName, s.text);
+    setBusy(false);
+    setStaged([]);
+    setSummary(`Filed ${toAdd.length} file${toAdd.length === 1 ? "" : "s"} — see the datasets below.`);
+  }
+
+  const ready = staged.filter((s) => s.chosenId).length;
+  const selCls = "w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-2 py-1 text-[12px] outline-none focus:border-[var(--color-brand-500)]";
+
+  return (
+    <Card>
+      <CardTitle right={<Tag tone="info">AI mix & match</Tag>}>Upload data — drop several files, we route them</CardTitle>
+      <p className="mb-3 text-[12.5px] text-[var(--color-ink-2)]">
+        Select one or more CSVs. We auto-match each file to the right dataset by its columns —
+        review the mapping, override anything, then file them all at once. Older versions stay available below.
+      </p>
+      <input
+        ref={input}
+        type="file"
+        accept=".csv,text/csv"
+        multiple
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.length) onFiles(e.target.files); e.target.value = ""; }}
+      />
+      <Button onClick={() => input.current?.click()}><IconUpload size={14} /> Choose CSV files</Button>
+
+      {staged.length > 0 && (
+        <div className="mt-3 overflow-hidden rounded-md border border-[var(--color-line)]">
+          <table className="w-full text-[12px]">
+            <thead className="bg-[var(--color-surface-2)] text-[10.5px] text-[var(--color-ink-2)]">
+              <tr>
+                <th className="px-2.5 py-1.5 text-left font-medium">File</th>
+                <th className="px-2.5 py-1.5 text-left font-medium">Maps to dataset</th>
+                <th className="px-2.5 py-1.5 text-left font-medium">Match</th>
+                <th className="px-2.5 py-1.5 text-right font-medium">Rows</th>
+                <th className="px-2.5 py-1.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {staged.map((s) => (
+                <tr key={s.id} className="border-t border-[var(--color-line)]">
+                  <td className="max-w-[180px] truncate px-2.5 py-1.5 font-mono text-[11px]">{s.fileName}</td>
+                  <td className="px-2.5 py-1.5">
+                    <select className={selCls} value={s.chosenId} onChange={(e) => setChoice(s.id, e.target.value)}>
+                      <option value="">— skip —</option>
+                      {pool.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-2.5 py-1.5">
+                    {s.detectedId
+                      ? <Tag tone={s.score >= 0.6 ? "good" : "warn"}>{Math.round(s.score * 100)}% auto</Tag>
+                      : <Tag tone="neutral">pick one</Tag>}
+                  </td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums">{s.rows.toLocaleString()}</td>
+                  <td className="px-2.5 py-1.5 text-right">
+                    <button onClick={() => removeStaged(s.id)} className="text-[var(--color-ink-3)] hover:text-[var(--color-bad)]" aria-label="Remove from queue"><IconX size={14} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex items-center gap-2 border-t border-[var(--color-line)] bg-[var(--color-surface-2)] px-2.5 py-2">
+            <span className="text-[11.5px] text-[var(--color-ink-2)]">{ready} of {staged.length} mapped</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setStaged([])}>Clear</Button>
+              <Button variant="primary" onClick={commit} disabled={!ready || busy}>
+                {busy ? <IconSpinner size={14} /> : <IconUpload size={14} />} File {ready} dataset{ready === 1 ? "" : "s"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {summary && <div className="mt-3 rounded-md bg-[var(--color-brand-50)] px-3 py-2 text-[12px] text-[var(--color-brand-700)]">{summary}</div>}
+    </Card>
+  );
+}
+
 function FileRows({
   project, template, onView,
 }: {
@@ -163,6 +232,7 @@ function FileRows({
   const [expanded, setExpanded] = useState(false);
   const [drift, setDrift] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const appendInput = useRef<HTMLInputElement>(null);
 
   const file = findFile(project, template.id);
   const active = file ? activeVersion(file) : undefined;
@@ -190,6 +260,26 @@ function FileRows({
     await addFileVersion(project.id, template.id, f.name, text);
     setDrift(nextDrift);
     setExpanded(true);
+  }
+
+  // "Add next period" — merge the new file into the running dataset.
+  async function onAppend(f: File) {
+    const text = await f.text();
+    if (!active) { await addFileVersion(project.id, template.id, f.name, text); setExpanded(true); return; }
+    const merged = appendMerge(template, active.content, text);
+    const warns: string[] = [];
+    if (merged.added.length) warns.push(`new column(s) ${merged.added.join(", ")}`);
+    if (merged.removed.length) warns.push(`this file omits ${merged.removed.join(", ")}`);
+    await addFileVersion(project.id, template.id, `${template.file} (combined)`, merged.content);
+    setDrift(`Added next period: +${merged.appended} new row(s), ${merged.replaced} updated → ${merged.total} rows combined.${warns.length ? ` ⚠ ${warns.join("; ")} — kept, not blocked.` : ""}`);
+    setExpanded(true);
+  }
+
+  async function removeFile() {
+    if (!file) return;
+    if (!window.confirm(`Remove "${template.title}" and all ${file.versions.length} version(s)? This can't be undone.`)) return;
+    setDrift(null);
+    for (const v of [...file.versions]) await deleteFileVersion(project.id, template.id, v.id);
   }
 
   return (
@@ -241,12 +331,17 @@ function FileRows({
         <td className="px-3 py-2.5 align-top">
           <input ref={input} type="file" accept=".csv,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }} />
+          <input ref={appendInput} type="file" accept=".csv,text/csv" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onAppend(f); e.target.value = ""; }} />
           <RowActions
             hasActive={!!active}
+            canAppend={!!active && template.timeSeries}
             onView={() => active && onView(active)}
             onUpload={() => input.current?.click()}
+            onAppend={() => appendInput.current?.click()}
             onDownloadActive={() => active && triggerDownload(active.fileName, active.content)}
             onDownloadTemplate={() => triggerDownload(template.file, templateToCsv(template))}
+            onRemove={removeFile}
           />
         </td>
       </tr>
@@ -272,13 +367,16 @@ function FileRows({
 /** Row action cluster: a primary View (eye) when a file exists, plus a
  *  three-dots menu holding upload / download actions (one solid control). */
 function RowActions({
-  hasActive, onView, onUpload, onDownloadActive, onDownloadTemplate,
+  hasActive, canAppend, onView, onUpload, onAppend, onDownloadActive, onDownloadTemplate, onRemove,
 }: {
   hasActive: boolean;
+  canAppend: boolean;
   onView: () => void;
   onUpload: () => void;
+  onAppend: () => void;
   onDownloadActive: () => void;
   onDownloadTemplate: () => void;
+  onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -311,9 +409,13 @@ function RowActions({
         </button>
         {open && (
           <div className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] py-1 shadow-xl">
-            {hasActive && <button className={item} onClick={run(onUpload)}><IconUpload size={13} /> Upload new version</button>}
+            {canAppend && <button className={item} onClick={run(onAppend)}><IconPlus size={13} /> Add next period (append)</button>}
+            {hasActive && <button className={item} onClick={run(onUpload)}><IconUpload size={13} /> Upload new version (replace)</button>}
             {hasActive && <button className={item} onClick={run(onDownloadActive)}><IconDownload size={13} /> Download active CSV</button>}
             <button className={item} onClick={run(onDownloadTemplate)}><IconFile size={13} /> Download blank template</button>
+            {hasActive && (
+              <button className={`${item} text-[var(--color-bad)]`} onClick={run(onRemove)}><IconTrash size={13} /> Remove file</button>
+            )}
           </div>
         )}
       </div>
@@ -351,7 +453,7 @@ function VersionRow({
   );
 }
 
-function ScenarioBackground({ project }: { project: Project }) {
+export function ScenarioBackground({ project }: { project: Project }) {
   const bg = (project.background ?? "").trim();
   if (!bg && !project.description) return null;
   return (
@@ -369,7 +471,7 @@ function ScenarioBackground({ project }: { project: Project }) {
   );
 }
 
-function ReadinessBar({ project }: { project: Project }) {
+export function ReadinessBar({ project }: { project: Project }) {
   const check = useMemo(() => runDataCheck(project), [project]);
   const errors = check.findings.filter((f) => f.severity === "error").length;
   const warnings = check.findings.filter((f) => f.severity === "warning").length;

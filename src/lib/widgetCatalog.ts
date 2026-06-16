@@ -17,6 +17,7 @@
 // ============================================================
 
 import type { DataProfile } from "./dataProfile";
+import { getTemplate } from "./templates";
 import { INDUSTRIES, type IndustryKey, type Layer, type ModuleKey } from "./dashboardModel";
 
 /**
@@ -67,7 +68,7 @@ const KPI: CatalogEntry[] = [
   { key: "stat:cm", widgetId: "stat", config: { metric: "cm" }, title: "Contribution margin", blurb: "Blended contribution margin on the demand plan.", module: "overview", layer: "core", highlight: true, requires: [{ templateId: "sku_master", fields: ["std_cost", "price"] }, { templateId: "demand_forecast" }] },
   { key: "stat:accuracy", widgetId: "stat", config: { metric: "accuracy" }, title: "Forecast accuracy", blurb: "How close the forecast tracked actuals (vs an 85% target).", module: "demand", layer: "core", highlight: true, requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast" }] },
   { key: "stat:bias", widgetId: "stat", config: { metric: "bias" }, title: "Forecast bias", blurb: "Systematic over- or under-forecasting.", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast" }] },
-  { key: "stat:invDays", widgetId: "stat", config: { metric: "invDays" }, title: "Inventory days", blurb: "Days of inventory on hand vs the target.", module: "supply", layer: "core", highlight: true, requires: [{ templateId: "inventory" }, { templateId: "plant_master", fields: ["target_inv_days"] }] },
+  { key: "stat:invDays", widgetId: "stat", config: { metric: "invDays" }, title: "Inventory days", blurb: "Days of inventory on hand vs the target.", module: "supply", layer: "core", highlight: true, requires: [{ templateId: "inventory" }] },
   { key: "stat:invTurns", widgetId: "stat", config: { metric: "invTurns" }, title: "Inventory turns", blurb: "How many times inventory turns over per year.", module: "supply", layer: "core", requires: [{ templateId: "inventory" }] },
   { key: "stat:capacity", widgetId: "stat", config: { metric: "capacity" }, title: "Capacity utilisation", blurb: "Load vs available demonstrated capacity (MAC).", module: "capacity", layer: "core", highlight: true, requires: [{ templateId: "capacity" }] },
   { key: "stat:plannedCapacity", widgetId: "stat", config: { metric: "plannedCapacity" }, title: "Utilisation vs planned", blurb: "Load vs the planned (haircut) capacity level.", module: "capacity", layer: "core", requires: [{ templateId: "capacity" }] },
@@ -83,12 +84,12 @@ const PANELS: CatalogEntry[] = [
   { key: "gap-table", widgetId: "gap-table", title: "Gap by product family", blurb: "Per-family demand, supply, gap and revenue at risk.", module: "supply", layer: "core", highlight: true, requires: [{ templateId: "demand_forecast" }, { templateId: "capacity" }] },
   { key: "plan-bridge", widgetId: "plan-bridge", title: "Plan bridge — baseline → committed", blurb: "Statistical baseline → committed supply → revenue at risk.", module: "demand", layer: "core", requires: [{ templateId: "demand_forecast" }, { templateId: "capacity" }] },
   { key: "accuracy-table", widgetId: "accuracy-table", title: "Forecast accuracy & bias (SKU)", blurb: "MAPE and bias by SKU, with the worst offenders to act on.", module: "demand", layer: "core", highlight: true, requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast", minRows: 2 }] },
-  { key: "customer-mix", widgetId: "customer-mix", title: "Customer demand mix", blurb: "Share of demand by customer / segment.", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }, { templateId: "customer_master" }] },
+  { key: "customer-mix", widgetId: "customer-mix", title: "Demand mix", blurb: "Share of demand by customer / channel / segment.", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }] },
   { key: "forecast-lag", widgetId: "forecast-lag", title: "Forecast bias by lag", blurb: "Actual vs the plan as it stood 1 and 2 months out.", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast" }] },
   { key: "capacity-lines", widgetId: "capacity-lines", title: "Line utilisation (RCCP)", blurb: "Required load vs available / planned capacity per line.", module: "capacity", layer: "core", highlight: true, requires: [{ templateId: "capacity" }] },
   { key: "capacity-heatmap", widgetId: "capacity-heatmap", title: "Production schedule heatmap", blurb: "Load % by line over the coming periods.", module: "capacity", layer: "core", requires: [{ templateId: "capacity" }] },
-  { key: "inventory-plants", widgetId: "inventory-plants", title: "Inventory by plant (RM/WIP/FG)", blurb: "Stock split and days of supply per site.", module: "supply", layer: "core", highlight: true, requires: [{ templateId: "inventory" }, { templateId: "plant_master" }] },
-  { key: "inventory-projection", widgetId: "inventory-projection", title: "Inventory projection", blurb: "Planned glide of inventory days toward target.", module: "supply", layer: "core", requires: [{ templateId: "inventory" }, { templateId: "plant_master", fields: ["target_inv_days"] }] },
+  { key: "inventory-plants", widgetId: "inventory-plants", title: "Inventory by site (RM/WIP/FG)", blurb: "Stock split and days of supply.", module: "supply", layer: "core", highlight: true, requires: [{ templateId: "inventory" }] },
+  { key: "inventory-projection", widgetId: "inventory-projection", title: "Inventory projection", blurb: "Planned glide of inventory days toward target.", module: "supply", layer: "core", requires: [{ templateId: "inventory" }] },
   { key: "slob", widgetId: "slob", title: "Slow-moving & obsolete (SLOB)", blurb: "FG sitting beyond cover or with no sales — cash at risk.", module: "supply", layer: "core", requires: [{ templateId: "inventory" }, { templateId: "sales_history" }] },
   { key: "mrp-risk", widgetId: "mrp-risk", title: "MRP — material & supplier risk", blurb: "Components flagged by supplier reliability and lead time.", module: "supply", layer: "core", requires: [{ templateId: "bom" }, { templateId: "supplier" }] },
   // Governance panels have no hard data dependency (Convex-backed) — always available.
@@ -96,6 +97,17 @@ const PANELS: CatalogEntry[] = [
   { key: "exceptions", widgetId: "exceptions", title: "Exceptions — what needs a decision", blurb: "Auto-ranked gaps, overloads, accuracy breaches, supplier risk, SLOB.", module: "overview", layer: "core", highlight: true, requires: [] },
   { key: "vulops", widgetId: "vulops", title: "Vulnerabilities & opportunities", blurb: "Tracked risks and upside, with owners.", module: "overview", layer: "core", requires: [] },
   { key: "decisions", widgetId: "decisions", title: "Decisions & actions", blurb: "Committed decisions with owner, status and due date.", module: "overview", layer: "core", requires: [] },
+
+  // --- depth widgets (G1–G7) ---
+  { key: "abc-pareto", widgetId: "abc-pareto", title: "ABC / Pareto analysis", blurb: "Classify SKUs by value (A/B/C) with the Pareto curve.", module: "demand", layer: "core", highlight: true, requires: [{ templateId: "sales_history" }] },
+  { key: "abc-accuracy", widgetId: "abc-accuracy", title: "Accuracy targets by ABC class", blurb: "Class-segmented forecast-accuracy targets (A tight, C loose).", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast" }] },
+  { key: "demand-control", widgetId: "demand-control", title: "Weekly demand control", blurb: "Short-term weekly actual vs plan between monthly cycles.", module: "demand", layer: "core", requires: [{ templateId: "sales_history" }, { templateId: "demand_forecast" }] },
+  { key: "portfolio", widgetId: "portfolio", title: "Portfolio — NPI / EOL", blurb: "New-product ramps and end-of-life run-downs.", module: "demand", layer: "industry", requires: [{ templateId: "portfolio" }] },
+  { key: "capacity-sites", widgetId: "capacity-sites", title: "Capacity by site (network)", blurb: "Per-site planned-vs-available roll-up with spare capacity.", module: "capacity", layer: "core", highlight: true, requires: [{ templateId: "capacity" }] },
+  { key: "reallocation", widgetId: "reallocation", title: "Cross-site reallocation", blurb: "Move a constrained family's gap to a qualified spare site, costed.", module: "supply", layer: "core", requires: [{ templateId: "capacity" }] },
+  { key: "plan-budget", widgetId: "plan-budget", title: "Plan vs budget (reconciliation)", blurb: "Operational plan vs the AOP/budget, by family.", module: "overview", layer: "core", requires: [{ templateId: "budget" }] },
+  { key: "scenario", widgetId: "scenario", title: "Scenario engine (what-if)", blurb: "Adjust demand/supply/capacity levers → revenue, margin, service.", module: "overview", layer: "core", highlight: true, requires: [{ templateId: "demand_forecast" }] },
+  { key: "cadence", widgetId: "cadence", title: "S&OP cadence & governance", blurb: "The monthly cycle as an owned, status-tracked checklist.", module: "overview", layer: "core", requires: [] },
 ];
 
 export const WIDGET_CATALOG: CatalogEntry[] = [...KPI, ...PANELS];
@@ -104,6 +116,21 @@ const CATALOG_BY_KEY = new Map(WIDGET_CATALOG.map((e) => [e.key, e]));
 export function getCatalogEntry(key: string): CatalogEntry | undefined {
   return CATALOG_BY_KEY.get(key);
 }
+
+/** Human-readable data sources a widget draws from (for the config UI). */
+export function widgetDataSources(entry: CatalogEntry): string[] {
+  if (!entry.requires.length) return ["Governance (no data file)"];
+  return [...new Set(entry.requires.map((r) => getTemplate(r.templateId)?.title ?? r.templateId))];
+}
+
+// Canonical-floor equivalents: a widget that asks for an S&OP-set template
+// is also satisfied by its floor counterpart (the universal data contract).
+const ROLE_ALIASES: Record<string, string[]> = {
+  sku_master: ["items"],
+  sales_history: ["sales"],
+  demand_forecast: ["plan"],
+  inventory: ["inventory_simple"],
+};
 
 // ---- readiness ----
 export type MissingReq = { templateId: string; reason: "not-uploaded" | "missing-fields" | "too-few-rows"; detail: string };
@@ -129,9 +156,16 @@ export function readinessFor(
 
   const missing: MissingReq[] = [];
   for (const req of entry.requires) {
-    const tp = profile.byId.get(req.templateId);
-    if (!tp || !tp.uploaded) {
+    // Accept the required template OR a canonical-floor equivalent.
+    const candidates = [req.templateId, ...(ROLE_ALIASES[req.templateId] ?? [])];
+    const tp = candidates.map((id) => profile.byId.get(id)).find((p) => p && p.uploaded);
+    if (!tp) {
       missing.push({ templateId: req.templateId, reason: "not-uploaded", detail: `Upload ${req.templateId}.csv` });
+      continue;
+    }
+    // Satisfied by an alias (different schema) — don't enforce exact field names.
+    if (tp.templateId !== req.templateId) {
+      if (req.minRows && tp.rows < req.minRows) missing.push({ templateId: req.templateId, reason: "too-few-rows", detail: `Needs ≥ ${req.minRows} rows (has ${tp.rows})` });
       continue;
     }
     const needFields = req.fields ?? tp.fields.filter((f) => f.required).map((f) => f.name);
@@ -146,6 +180,26 @@ export function readinessFor(
   }
 
   return missing.length ? { state: "locked", missing } : { state: "ready" };
+}
+
+/**
+ * Deterministic, data-grounded recommendation text — correct even with no
+ * AI endpoint (the offline default for the guide). Gemini can enhance it.
+ */
+export function dataGuide(profile: DataProfile, industry?: IndustryKey): string {
+  const { ready, locked } = tierCatalog(profile, industry);
+  const up = profile.templates.filter((t) => t.uploaded);
+  const recommended = ready.filter((e) => e.highlight).map((e) => e.title);
+  const unlock = [...new Set(locked.flatMap((l) => l.missing.map((m) => m.templateId)))];
+  const lines: string[] = [];
+  lines.push(`You've uploaded ${up.length} of ${profile.templates.length} datasets (${up.map((t) => t.title).join(", ") || "none yet"}).`);
+  if (ready.length) {
+    lines.push(`${ready.length} widgets are ready from your data${recommended.length ? ` — a good starting set: ${recommended.slice(0, 5).join(", ")}.` : "."}`);
+  } else {
+    lines.push("No widgets are data-ready yet — upload your core files (items, sales, plan) to begin.");
+  }
+  if (unlock.length) lines.push(`Upload ${unlock.slice(0, 4).join(", ")} to unlock ${locked.length} more widget(s).`);
+  return lines.join("\n");
 }
 
 /** Convenience: all entries split into the three gallery tiers. */

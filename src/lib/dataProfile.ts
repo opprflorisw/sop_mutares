@@ -12,7 +12,7 @@
 // ============================================================
 
 import { parseCsv } from "./csv";
-import { TEMPLATES, type DataTemplate, type TemplateField } from "./templates";
+import { templatesForProject, type DataTemplate, type TemplateField } from "./templates";
 import { activeVersion, findFile, type Project } from "./projects";
 
 export type FieldProfile = {
@@ -166,7 +166,7 @@ function profileTemplate(
 
 /** Profile every template for a project from its ACTIVE uploaded versions. */
 export function profileProject(project: Project): DataProfile {
-  const templates = TEMPLATES.map((t) => profileTemplate(t, project));
+  const templates = templatesForProject(project).map((t) => profileTemplate(t, project));
   return {
     projectId: project.id,
     industry: project.industry,
@@ -174,6 +174,47 @@ export function profileProject(project: Project): DataProfile {
     uploadedIds: new Set(templates.filter((t) => t.uploaded).map((t) => t.templateId)),
     byId: new Map(templates.map((t) => [t.templateId, t])),
   };
+}
+
+/**
+ * Append-merge the next period's file into the running dataset:
+ *  - union the columns (new columns are kept; old rows get blanks)
+ *  - rows are keyed on the non-numeric (dimension) columns; an incoming
+ *    row REPLACES an overlapping existing row, otherwise it's appended
+ *  - reports column drift (added / removed) — caller warns, never blocks
+ */
+export function appendMerge(
+  template: DataTemplate,
+  existing: string,
+  incoming: string
+): { content: string; added: string[]; removed: string[]; replaced: number; appended: number; total: number } {
+  const a = parseCsv(existing);
+  const b = parseCsv(incoming);
+
+  const headers = [...a.headers];
+  for (const h of b.headers) if (!headers.includes(h)) headers.push(h);
+  const added = b.headers.filter((h) => !a.headers.includes(h));
+  const removed = a.headers.filter((h) => !b.headers.includes(h));
+
+  // Key on dimension columns (template fields that aren't numeric measures).
+  const keyCols = template.fields.filter((f) => f.type !== "number").map((f) => f.name).filter((n) => headers.includes(n));
+  const keyOf = (row: Record<string, string>) =>
+    (keyCols.length ? keyCols : headers).map((c) => (row[c] ?? "").trim().toLowerCase()).join("|");
+
+  const map = new Map<string, Record<string, string>>();
+  const order: string[] = [];
+  for (const r of a.rows) { const k = keyOf(r); if (!map.has(k)) order.push(k); map.set(k, r); }
+  let replaced = 0, appended = 0;
+  for (const r of b.rows) {
+    const k = keyOf(r);
+    if (map.has(k)) { replaced++; map.set(k, { ...map.get(k), ...r }); }
+    else { appended++; order.push(k); map.set(k, r); }
+  }
+
+  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const lines = [headers.join(",")];
+  for (const k of order) { const row = map.get(k)!; lines.push(headers.map((h) => esc(row[h] ?? "")).join(",")); }
+  return { content: lines.join("\n") + "\n", added, removed, replaced, appended, total: order.length };
 }
 
 /**

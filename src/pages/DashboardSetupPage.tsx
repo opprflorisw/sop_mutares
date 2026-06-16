@@ -6,9 +6,10 @@ import { useProjects } from "../lib/projects";
 import { useAuth } from "../lib/auth";
 import { profileProject, type DataProfile, type TemplateProfile } from "../lib/dataProfile";
 import {
-  tierCatalog, resolveIndustryKey, WIDGET_CATALOG,
+  tierCatalog, resolveIndustryKey, dataGuide, WIDGET_CATALOG,
   type CatalogEntry, type MissingReq,
 } from "../lib/widgetCatalog";
+import type { IndustryKey } from "../lib/dashboardModel";
 import { placeFromCatalog } from "../lib/dashboardGenerator";
 import {
   buildBlueprint, downloadBlueprint, parseBlueprint, contractGaps,
@@ -174,7 +175,7 @@ export default function DashboardSetupPage() {
       {/* STEP 1 — review the data */}
       <StepHeader n={1} title="What we see in your data" sub="Each widget below is unlocked by the data you've uploaded." />
       <DataReview profile={profile} industryLabel={industry ? (INDUSTRIES.find((i) => i.key === industry)?.label ?? industry) : null} readyCount={tiers.ready.length} lockedCount={tiers.locked.length} />
-      <AiGuide profile={profile} readyCount={tiers.ready.length} lockedCount={tiers.locked.length} />
+      <AiGuide profile={profile} industry={industry} />
 
       {/* STEP 2 — pick widgets */}
       <StepHeader n={2} title="Choose your widgets" sub={`${selected.size} selected · highlighted = recommended starting set`} />
@@ -391,33 +392,20 @@ function WidgetGallery({
   );
 }
 
-// ---- AI guide (chat with the data) ----
-function profileSummary(profile: DataProfile, ready: number, locked: number): string {
-  const up = profile.templates.filter((t) => t.uploaded);
-  const lines = up.map((t) => `- ${t.title}: ${t.rows} rows, quality ${t.quality}${t.dateCoverage ? `, covers ${t.dateCoverage.start}..${t.dateCoverage.end}` : ""}`);
-  const missing = profile.templates.filter((t) => !t.uploaded).map((t) => t.title);
-  return [
-    `Industry: ${profile.industry}`,
-    `Uploaded files (${up.length}/${profile.templates.length}):`,
-    ...lines,
-    missing.length ? `Not uploaded: ${missing.join(", ")}` : "All templates uploaded.",
-    `${ready} dashboard widgets are data-ready; ${locked} are locked pending more data.`,
-  ].join("\n");
-}
-
-function AiGuide({ profile, readyCount, lockedCount }: { profile: DataProfile; readyCount: number; lockedCount: number }) {
-  const [text, setText] = useState<string | null>(null);
+// ---- AI guide (grounded recommendation; Gemini optional) ----
+function AiGuide({ profile, industry }: { profile: DataProfile; industry?: IndustryKey }) {
+  const grounded = useMemo(() => dataGuide(profile, industry), [profile, industry]);
+  const [text, setText] = useState<string>(grounded);
   const [source, setSource] = useState<AiSource | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function run() {
     setLoading(true);
-    const ctx = profileSummary(profile, readyCount, lockedCount);
     const res = await aiChat(
-      [{ role: "user", text: "Based on the data I've uploaded, recommend which dashboard widgets I should add and why, and what to upload next to unlock more. Be concise and specific." }],
-      ctx,
+      [{ role: "user", text: "Based on the data summary, recommend which widgets to start with and what to upload next to unlock more. Be concise and specific." }],
+      grounded,
     );
-    setText(res.text);
+    setText(res.source === "gemini" ? res.text : grounded);
     setSource(res.source);
     setLoading(false);
   }
@@ -426,26 +414,18 @@ function AiGuide({ profile, readyCount, lockedCount }: { profile: DataProfile; r
     <Card>
       <CardTitle right={
         <Button variant="primary" onClick={run} disabled={loading}>
-          {loading ? <IconSpinner size={14} /> : <IconSparkles size={14} />} {loading ? "Thinking…" : text ? "Ask again" : "Ask the AI guide"}
+          {loading ? <IconSpinner size={14} /> : <IconSparkles size={14} />} {loading ? "Thinking…" : "Ask AI for more"}
         </Button>
       }>
         AI guide — what your data is telling us
       </CardTitle>
-      {!text && !loading && (
-        <p className="text-[12.5px] text-[var(--color-ink-2)]">
-          Get a plain-language recommendation of which widgets to start with for this dataset and what to upload next.
-        </p>
-      )}
-      {loading && <div className="flex items-center gap-2 text-[12.5px] text-[var(--color-ink-2)]"><IconSpinner size={14} className="text-[var(--color-brand-600)]" /> Reading your data…</div>}
-      {text && (
-        <div className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--color-ink)]">
-          <div className="mb-1.5 flex items-center gap-2">
-            <IconSparkles size={13} /> <span className="text-[11px] font-semibold text-[var(--color-ink-2)]">Recommendation</span>
-            {source && <Tag tone={source === "gemini" ? "accent" : "neutral"}>{source === "gemini" ? "Gemini" : "local"}</Tag>}
-          </div>
-          {text.split("\n").map((l, i) => l.trim() ? <div key={i} className="mb-0.5">{l}</div> : null)}
+      <div className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--color-ink)]">
+        <div className="mb-1.5 flex items-center gap-2">
+          <IconSparkles size={13} /> <span className="text-[11px] font-semibold text-[var(--color-ink-2)]">Recommendation</span>
+          <Tag tone={source === "gemini" ? "accent" : "neutral"}>{source === "gemini" ? "Gemini" : "from your data"}</Tag>
         </div>
-      )}
+        {text.split("\n").map((l, i) => l.trim() ? <div key={i} className="mb-0.5">{l}</div> : null)}
+      </div>
     </Card>
   );
 }

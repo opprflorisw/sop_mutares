@@ -1,0 +1,3 @@
+item,type,start_month,ramp_months,peak_units,cannibalizes
+ESP-COLD,NPI,2026-03,4,800,COLD-BREW
+FIL-250,EOL,2026-05,3,0,

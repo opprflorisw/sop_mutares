@@ -10,6 +10,7 @@ import {
   IconAdjustmentsHorizontal, IconLoader2, IconLayoutGrid as TIconLayoutGrid, IconX as TIconX,
   IconGripVertical as TIconGripVertical, IconCopy as TIconCopy, IconTrash as TIconTrash,
   IconPencil as TIconPencil, IconDeviceFloppy, IconBolt as TIconBolt, IconCheck as TIconCheck,
+  IconList as TIconList, IconUserCircle as TIconUserCircle,
 } from "@tabler/icons-react";
 
 // ============================================================
@@ -64,6 +65,8 @@ export const IconGear = wrap(IconAdjustmentsHorizontal);
 
 // Dashboard-system icons
 export const IconGrid = wrap(TIconLayoutGrid);
+export const IconList = wrap(TIconList);
+export const IconUserCircle = wrap(TIconUserCircle);
 export const IconX = wrap(TIconX);
 export const IconGrip = wrap(TIconGripVertical);
 export const IconCopy = wrap(TIconCopy);

@@ -203,6 +203,167 @@ export const TEMPLATES: DataTemplate[] = [
   },
 ];
 
+// ============================================================
+// Canonical floor — the small, universal data contract every NEW
+// customer adheres to (items / sales / plan, + optional inventory). It
+// guarantees the Universal widgets can populate for any business. The
+// older, richer SFC-style templates above are the "S&OP" set used by the
+// seeded demo projects. A project shows whichever set its data belongs
+// to (new/empty projects default to the floor).
+// ============================================================
+export const FLOOR_TEMPLATE_IDS = ["items", "sales", "plan", "inventory_simple"] as const;
+const FLOOR = new Set<string>(FLOOR_TEMPLATE_IDS);
+
+const FLOOR_TEMPLATES: DataTemplate[] = [
+  {
+    id: "items",
+    file: "items.csv",
+    title: "Item Master",
+    module: "Master",
+    requirement: "required",
+    timeSeries: false,
+    description: "The product/SKU catalogue — every other file references it.",
+    fields: [
+      { name: "item_id", type: "string", required: true, description: "Unique item / SKU code" },
+      { name: "name", type: "string", required: true, description: "Item name / description" },
+      { name: "category", type: "string", required: true, description: "Product category / family" },
+      { name: "unit_cost", type: "number", required: true, description: "Cost per unit" },
+      { name: "unit_price", type: "number", required: true, description: "Selling price per unit" },
+    ],
+    example: { item_id: "ESP-250", name: "Espresso Blend 250g", category: "Beans", unit_cost: 3.2, unit_price: 7.5 },
+  },
+  {
+    id: "sales",
+    file: "sales.csv",
+    title: "Sales (Actuals)",
+    module: "Demand",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "month",
+    description: "Actual sales by month and item — units and revenue.",
+    fields: [
+      { name: "month", type: "date", required: true, description: "Period (YYYY-MM)" },
+      { name: "item_id", type: "string", required: true, description: "Item (must exist in Item Master)" },
+      { name: "units", type: "number", required: true, description: "Units sold" },
+      { name: "revenue", type: "number", required: true, description: "Revenue" },
+      { name: "channel", type: "string", required: false, description: "Sales channel (optional — enables channel widgets)" },
+      { name: "region", type: "string", required: false, description: "Region (optional — enables region widgets)" },
+    ],
+    example: { month: "2025-07", item_id: "ESP-250", units: 957, revenue: 7178, channel: "Retail", region: "North" },
+  },
+  {
+    id: "plan",
+    file: "plan.csv",
+    title: "Plan / Forecast",
+    module: "Demand",
+    requirement: "required",
+    timeSeries: true,
+    dateField: "month",
+    description: "Planned / forecast units by month and item.",
+    fields: [
+      { name: "month", type: "date", required: true, description: "Period (YYYY-MM)" },
+      { name: "item_id", type: "string", required: true, description: "Item" },
+      { name: "planned_units", type: "number", required: true, description: "Planned / forecast units" },
+    ],
+    example: { month: "2025-07", item_id: "ESP-250", planned_units: 1113 },
+  },
+  {
+    id: "inventory_simple",
+    file: "inventory.csv",
+    title: "Inventory",
+    module: "Inventory",
+    requirement: "recommended",
+    timeSeries: true,
+    dateField: "month",
+    description: "On-hand stock by month and item — unlocks inventory widgets.",
+    fields: [
+      { name: "month", type: "date", required: true, description: "Period (YYYY-MM)" },
+      { name: "item_id", type: "string", required: true, description: "Item" },
+      { name: "on_hand_units", type: "number", required: true, description: "Units on hand" },
+      { name: "on_hand_value", type: "number", required: true, description: "Value of stock on hand" },
+    ],
+    example: { month: "2025-07", item_id: "ESP-250", on_hand_units: 1080, on_hand_value: 3456 },
+  },
+];
+
+TEMPLATES.push(...FLOOR_TEMPLATES);
+
+// Advanced / depth inputs (network balancing, reconciliation, portfolio).
+// Optional, and offered to ANY project so the depth features can be tried.
+const ADVANCED = new Set<string>(["site_product", "budget", "portfolio"]);
+const ADVANCED_TEMPLATES: DataTemplate[] = [
+  {
+    id: "site_product",
+    file: "site_product.csv",
+    title: "Site–Product Matrix",
+    module: "Supply",
+    requirement: "optional",
+    timeSeries: false,
+    description: "Which sites can produce which families — enables cross-site reallocation.",
+    fields: [
+      { name: "plant", type: "string", required: true, description: "Plant / site code" },
+      { name: "family", type: "string", required: true, description: "Product family the site can make" },
+      { name: "qualified", type: "string", required: true, description: "1/yes if the site is qualified" },
+      { name: "transfer_cost", type: "number", required: false, description: "Transfer cost per unit to this site" },
+      { name: "lead_time_days", type: "number", required: false, description: "Transfer lead time (days)" },
+    ],
+    example: { plant: "SND", family: "Profile extrusions", qualified: "1", transfer_cost: 0.6, lead_time_days: 14 },
+  },
+  {
+    id: "budget",
+    file: "budget.csv",
+    title: "Budget / AOP",
+    module: "Demand",
+    requirement: "optional",
+    timeSeries: true,
+    dateField: "month",
+    description: "Financial budget by family — for plan-to-budget reconciliation.",
+    fields: [
+      { name: "month", type: "date", required: true, description: "Period (YYYY-MM)" },
+      { name: "family", type: "string", required: true, description: "Product family" },
+      { name: "budget_revenue", type: "number", required: true, description: "Budgeted revenue" },
+    ],
+    example: { month: "2025-07", family: "Profile extrusions", budget_revenue: 240000 },
+  },
+  {
+    id: "portfolio",
+    file: "portfolio.csv",
+    title: "Portfolio (NPI / EOL)",
+    module: "Demand",
+    requirement: "optional",
+    timeSeries: false,
+    description: "New-product introductions and end-of-life run-downs with ramp profiles.",
+    fields: [
+      { name: "item", type: "string", required: true, description: "SKU / item" },
+      { name: "type", type: "enum", required: true, description: "NPI or EOL", enumValues: ["NPI", "EOL"] },
+      { name: "start_month", type: "date", required: true, description: "Ramp / run-down start (YYYY-MM)" },
+      { name: "ramp_months", type: "number", required: true, description: "Months to reach peak / zero" },
+      { name: "peak_units", type: "number", required: true, description: "Peak monthly units" },
+      { name: "cannibalizes", type: "string", required: false, description: "SKU this one takes demand from" },
+    ],
+    example: { item: "ESP-COLD", type: "NPI", start_month: "2026-03", ramp_months: 4, peak_units: 800, cannibalizes: "COLD-BREW" },
+  },
+];
+TEMPLATES.push(...ADVANCED_TEMPLATES);
+
+export const floorTemplates = (): DataTemplate[] => TEMPLATES.filter((t) => FLOOR.has(t.id) || ADVANCED.has(t.id));
+export const sopTemplates = (): DataTemplate[] => TEMPLATES.filter((t) => !FLOOR.has(t.id));
+
+/**
+ * Which template set a project should show. New/empty projects use the
+ * small canonical floor; the seeded demos (which already hold S&OP-set
+ * files) keep their richer set. Mixed → everything.
+ */
+export function templatesForProject(project: { files: { templateId: string }[] }): DataTemplate[] {
+  const ids = new Set(project.files.map((f) => f.templateId));
+  if (ids.size === 0) return floorTemplates();
+  const hasFloor = [...ids].some((id) => FLOOR.has(id));
+  const hasSop = [...ids].some((id) => !FLOOR.has(id));
+  if (hasFloor && !hasSop) return floorTemplates();
+  if (hasSop && !hasFloor) return sopTemplates();
+  return TEMPLATES;
+}
+
 export function getTemplate(id: string): DataTemplate | undefined {
   return TEMPLATES.find((t) => t.id === id);
 }
@@ -224,11 +385,12 @@ export function templateToCsv(t: DataTemplate): string {
  * required columns it best matches. Returns the best match + a 0-1 score.
  */
 export function detectTemplate(
-  headers: string[]
+  headers: string[],
+  pool: DataTemplate[] = TEMPLATES
 ): { template: DataTemplate; score: number } | null {
   const norm = headers.map((h) => h.trim().toLowerCase());
   let best: { template: DataTemplate; score: number } | null = null;
-  for (const t of TEMPLATES) {
+  for (const t of pool) {
     const cols = t.fields.map((f) => f.name.toLowerCase());
     const hits = cols.filter((c) => norm.includes(c)).length;
     const score = hits / cols.length;

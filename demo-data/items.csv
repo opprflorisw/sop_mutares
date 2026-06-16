@@ -1,0 +1,9 @@
+item_id,name,category,unit_cost,unit_price
+ESP-250,Espresso Blend 250g,Beans,3.2,7.5
+ESP-1KG,Espresso Blend 1kg,Beans,11,24
+FIL-250,Filter Blend 250g,Beans,3,7
+DEC-250,Decaf Blend 250g,Beans,3.4,7.8
+CAP-PODS,Capsule Pods 10pk,Pods,1.8,4.5
+COLD-BREW,Cold Brew 250ml,RTD,0.9,2.8
+MUG-CER,Ceramic Mug,Merch,2.5,9
+GIFT-BOX,Gift Box Set,Gift,8,22

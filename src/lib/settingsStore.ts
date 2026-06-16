@@ -78,6 +78,8 @@ export function getChatProfiles(): ChatProfile[] { return read<ChatProfile[]>("s
 // ---- User profile ----
 export type UserProfile = {
   avatar?: string | null;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   jobTitle?: string;
   company?: string;

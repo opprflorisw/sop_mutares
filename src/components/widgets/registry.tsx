@@ -3,13 +3,16 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import type { FC } from "react";
-import { KpiTile, Tag } from "../ui";
-import { C, TOOLTIP_STYLE } from "../../lib/colors";
+import { Card, KpiTile, Tag } from "../ui";
+import { C, PALETTE, TOOLTIP_STYLE } from "../../lib/colors";
 import { fmtMoney, fmtUnits, type ProjectData } from "../../lib/projectData";
+import { aggregateSpec, type CustomSpec } from "../../lib/customWidget";
 import type { Project } from "../../lib/projects";
 import type { DashboardDef, PlacedWidget, WidgetCategory } from "../../lib/dashboards";
 import VulOpsCard from "../VulOpsCard";
 import DecisionsPanel from "../DecisionsPanel";
+import ScenarioEngine from "../ScenarioEngine";
+import CadencePanel from "../CadencePanel";
 
 // ============================================================
 // Widget registry — every dashboard tile is a registered widget that
@@ -387,6 +390,221 @@ const Exceptions: FC<WidgetProps> = ({ d }) => {
 const VulOps: FC<WidgetProps> = ({ project, d }) => <VulOpsCard projectId={project.id} currency={d.currency} />;
 const Decisions: FC<WidgetProps> = ({ project }) => <DecisionsPanel projectId={project.id} />;
 
+// ---- Custom widget (renders an AI-authored spec generically) ----
+export const CustomWidgetView: FC<WidgetProps> = ({ project, d, config }) => {
+  const spec = config?.spec as CustomSpec | undefined;
+  if (!spec) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No widget spec.</div>;
+  const data = aggregateSpec(project, spec);
+  const isMoney = /revenue|value|cost|price/.test(spec.measure);
+  const fmtV = (v: number) => (isMoney ? fmtMoney(v, d.currency) : fmtUnits(v));
+  return (
+    <Card className="flex h-full flex-col overflow-hidden">
+      <div className="mb-2 flex shrink-0 items-center gap-2">
+        <h3 className="text-[13px] font-semibold text-[var(--color-ink)]">{spec.title}</h3>
+        <Tag tone="accent">custom</Tag>
+      </div>
+      <div className="min-h-0 flex-1">
+        {data.length === 0 ? (
+          <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No data for this widget yet.</div>
+        ) : spec.chart === "kpi" ? (
+          <div className="flex h-full flex-col justify-center">
+            <div className="text-[26px] font-semibold tabular-nums">{fmtV(data.reduce((s, x) => s + x.value, 0))}</div>
+            <div className="text-[11px] text-[var(--color-ink-3)]">{spec.title}</div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%" minHeight={170}>
+            {spec.chart === "pie" ? (
+              <PieChart>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="85%" paddingAngle={1}>
+                  {data.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => fmtV(v)} contentStyle={TOOLTIP_STYLE} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            ) : spec.chart === "line" ? (
+              <ComposedChart data={data} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={fmtV} width={48} />
+                <Tooltip formatter={(v: number) => fmtV(v)} contentStyle={TOOLTIP_STYLE} />
+                <Line type="monotone" dataKey="value" name={spec.title} stroke={C.demand} strokeWidth={2} dot={false} />
+              </ComposedChart>
+            ) : (
+              <BarChart data={data} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} interval={0} />
+                <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={fmtV} width={48} />
+                <Tooltip formatter={(v: number) => fmtV(v)} contentStyle={TOOLTIP_STYLE} />
+                <Bar dataKey="value" name={spec.title} fill={C.demand} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+// ---- G4 · ABC / Pareto ----
+const klassColor = (k: string) => (k === "A" ? C.good : k === "B" ? C.warn : C.bad);
+const AbcPareto: FC<WidgetProps> = ({ d }) => {
+  const data = d.abc.slice(0, 16).map((a) => ({ name: a.label.length > 16 ? a.label.slice(0, 15) + "…" : a.label, value: a.value, cum: +(a.cumShare * 100).toFixed(1), klass: a.klass }));
+  if (!data.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No demand value to classify yet.</div>;
+  return (
+    <div className="flex h-full min-h-[200px] flex-col">
+      <div className="mb-1 flex shrink-0 gap-3 text-[10.5px] text-[var(--color-ink-2)]">
+        {(["A", "B", "C"] as const).map((k) => <span key={k} className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: klassColor(k) }} />{k} · {d.abc.filter((x) => x.klass === k).length}</span>)}
+      </div>
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 8, fill: C.axis }} tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={46} />
+            <YAxis yAxisId="v" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+            <YAxis yAxisId="c" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} width={32} tickFormatter={(v) => `${v}%`} />
+            <Tooltip formatter={(v: number, n: string) => (n === "cum" ? `${v}%` : fmtMoney(v, d.currency))} contentStyle={TOOLTIP_STYLE} />
+            <Bar yAxisId="v" dataKey="value" name="value" radius={[3, 3, 0, 0]}>
+              {data.map((p, i) => <Cell key={i} fill={klassColor(p.klass)} />)}
+            </Bar>
+            <Line yAxisId="c" type="monotone" dataKey="cum" name="cum" stroke={C.accent} strokeWidth={2} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+const ABC_TARGET = { A: 90, B: 80, C: 70 } as const;
+const AbcAccuracy: FC<WidgetProps> = ({ d }) => {
+  const accBy = new Map(d.skuAccuracy.map((s) => [s.sku, s]));
+  const rows = (["A", "B", "C"] as const).map((k) => {
+    const accs = d.abc.filter((a) => a.klass === k).map((a) => accBy.get(a.key)).filter((s): s is NonNullable<typeof s> => !!s && s.mape > 0);
+    const avgAcc = accs.length ? Math.round(100 - accs.reduce((s, a) => s + a.mape, 0) / accs.length) : null;
+    return { k, count: d.abc.filter((a) => a.klass === k).length, avgAcc, target: ABC_TARGET[k] };
+  });
+  return (
+    <table className="w-full text-[12px]">
+      <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">Class</th><th className="py-1.5 text-right font-medium">Items</th><th className="py-1.5 text-right font-medium">Accuracy</th><th className="py-1.5 text-right font-medium">Target</th><th className="py-1.5 font-medium">Status</th></tr></thead>
+      <tbody>
+        {rows.map((r) => {
+          const ok = r.avgAcc == null ? null : r.avgAcc >= r.target;
+          return (
+            <tr key={r.k} className="border-t border-[var(--color-line)]">
+              <td className="py-1.5 font-semibold"><span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: klassColor(r.k) }} />{r.k}</td>
+              <td className="py-1.5 text-right tabular-nums">{r.count}</td>
+              <td className="py-1.5 text-right tabular-nums">{r.avgAcc == null ? "—" : `${r.avgAcc}%`}</td>
+              <td className="py-1.5 text-right tabular-nums text-[var(--color-ink-3)]">{r.target}%</td>
+              <td className="py-1.5">{ok == null ? <Tag tone="neutral">n/a</Tag> : ok ? <Tag tone="good">on target</Tag> : <Tag tone="warn">below</Tag>}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
+// ---- G5 · Capacity by site ----
+const CapacitySites: FC<WidgetProps> = ({ d }) =>
+  d.sites.length === 0 ? (
+    <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No site-level capacity — upload capacity.csv with plant codes.</div>
+  ) : (
+    <div className="space-y-2.5">
+      {d.sites.map((s) => {
+        const tone = s.plannedUtil >= 100 ? "bad" : s.plannedUtil >= 95 ? "warn" : "good";
+        const frame = Math.max(120, s.plannedUtil + 5);
+        return (
+          <div key={s.plant} className="flex items-center gap-3">
+            <div className="w-32 shrink-0"><div className="text-[12px] font-medium">{s.name}</div><div className="text-[10px] text-[var(--color-ink-3)]">{s.lineCount} line(s)</div></div>
+            <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.plannedUtil / frame) * 100)}%`, background: tone === "bad" ? C.bad : tone === "warn" ? C.warn : s.color }} /></div>
+            <span className={`w-11 text-right text-[12px] font-semibold ${tone === "bad" ? "text-[var(--color-bad)]" : tone === "warn" ? "text-[var(--color-warn)]" : "text-[var(--color-ink)]"}`}>{s.plannedUtil.toFixed(0)}%</span>
+            <span className="w-20 text-right text-[10.5px] text-[var(--color-ink-3)]">{s.spareMin > 0 ? `${Math.round(s.spareMin / 60)}h spare` : "no spare"}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+// ---- G7 · Cross-site reallocation ----
+const Reallocation: FC<WidgetProps> = ({ d }) =>
+  d.reallocations.length === 0 ? (
+    <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No reallocation available — either no gap, or no qualified site with spare capacity.</div>
+  ) : (
+    <table className="w-full text-[12px]">
+      <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">Family</th><th className="py-1.5 font-medium">Move</th><th className="py-1.5 text-right font-medium">Units</th><th className="py-1.5 text-right font-medium">Recovered</th><th className="py-1.5 text-right font-medium">Net</th><th className="py-1.5 font-medium">Lead</th></tr></thead>
+      <tbody>
+        {d.reallocations.map((r, i) => (
+          <tr key={i} className="border-t border-[var(--color-line)]">
+            <td className="py-1.5 font-medium">{r.family}</td>
+            <td className="py-1.5 text-[var(--color-ink-2)]">{r.fromSite} → <strong>{r.toSite}</strong></td>
+            <td className="py-1.5 text-right tabular-nums">{fmtUnits(r.units)}</td>
+            <td className="py-1.5 text-right tabular-nums text-[var(--color-good-2)]">{fmtMoney(r.revenueRecovered, d.currency)}</td>
+            <td className="py-1.5 text-right font-semibold tabular-nums">{fmtMoney(r.net, d.currency)}</td>
+            <td className="py-1.5 text-[var(--color-ink-3)]">{r.leadTime}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+// ---- G3 · Plan vs budget ----
+const PlanBudget: FC<WidgetProps> = ({ d }) =>
+  d.budgetVariance.length === 0 ? (
+    <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">Upload budget.csv to reconcile the plan against the AOP.</div>
+  ) : (
+    <div className="h-full min-h-[180px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={d.budgetVariance.map((b) => ({ name: b.family, Plan: b.plan, Budget: b.budget }))} margin={{ top: 6, right: 8, left: 4, bottom: 0 }} barGap={2}>
+          <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+          <XAxis dataKey="name" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} interval={0} />
+          <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+          <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={TOOLTIP_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Bar dataKey="Plan" fill={C.demand} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="Budget" fill={C.forecast} radius={[3, 3, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+
+// ---- G1 · Portfolio (NPI / EOL) ----
+const PortfolioView: FC<WidgetProps> = ({ d }) =>
+  d.portfolio.length === 0 ? (
+    <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">Upload portfolio.csv (NPI / EOL) to see the lifecycle calendar.</div>
+  ) : (
+    <div className="divide-y divide-[var(--color-line)]">
+      {d.portfolio.map((p, i) => (
+        <div key={i} className="flex items-center gap-3 py-2 text-[12px]">
+          <Tag tone={p.type === "NPI" ? "good" : "bad"}>{p.type}</Tag>
+          <span className="min-w-0 flex-1"><span className="font-medium">{p.item}</span><span className="ml-1.5 text-[11px] text-[var(--color-ink-3)]">{p.desc}</span></span>
+          <span className="text-[11px] text-[var(--color-ink-2)]">{p.startMonth} · {p.rampMonths}mo</span>
+          <span className="w-16 text-right tabular-nums">{fmtUnits(p.peakUnits)}</span>
+          {p.cannibalizes && <span className="text-[10.5px] text-[var(--color-warn)]">↘ {p.cannibalizes}</span>}
+        </div>
+      ))}
+    </div>
+  );
+
+// ---- G2 · Weekly Demand Control ----
+const DemandControl: FC<WidgetProps> = ({ d }) => (
+  <div className="h-full min-h-[170px]">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={d.demandControl} margin={{ top: 6, right: 8, left: 4, bottom: 0 }} barGap={2}>
+        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
+        <XAxis dataKey="week" tick={{ fontSize: 10, fill: C.axis }} tickLine={false} axisLine={false} />
+        <YAxis tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} width={48} />
+        <Tooltip formatter={(v: number) => fmtMoney(v, d.currency)} contentStyle={TOOLTIP_STYLE} />
+        <Legend wrapperStyle={{ fontSize: 10 }} />
+        <Bar dataKey="actual" name="Actual run-rate" fill={C.demand} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="plan" name="Weekly plan" fill={C.forecast} radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+// Interactive depth panels (own files).
+const ScenarioWidget: FC<WidgetProps> = ({ d, project }) => <ScenarioEngine d={d} project={project} />;
+const CadenceWidget: FC<WidgetProps> = ({ project }) => <CadencePanel projectId={project.id} />;
+
 // ============================================================
 // Registry
 // ============================================================
@@ -410,6 +628,18 @@ export const WIDGETS: WidgetDef[] = [
   { id: "exceptions", title: "Exceptions — what needs a decision", category: "governance", frame: "card", defaultSize: { w: 12, h: 3 }, component: Exceptions },
   { id: "vulops", title: "Vulnerabilities & Opportunities", category: "governance", frame: "bare", defaultSize: { w: 6, h: 3 }, component: VulOps },
   { id: "decisions", title: "Decisions & actions", category: "governance", frame: "bare", defaultSize: { w: 6, h: 3 }, component: Decisions },
+  // AI-authored custom widget — renders the spec carried in config.spec.
+  { id: "custom", title: "Custom widget", category: "kpi", frame: "bare", defaultSize: { w: 6, h: 3 }, component: CustomWidgetView },
+  // --- depth widgets (G1–G7) ---
+  { id: "abc-pareto", title: "ABC / Pareto analysis", category: "demand", frame: "card", defaultSize: { w: 8, h: 3 }, component: AbcPareto, available: (d) => d.abc.length > 0 },
+  { id: "abc-accuracy", title: "Accuracy targets by ABC class", category: "demand", frame: "card", defaultSize: { w: 4, h: 3 }, component: AbcAccuracy, available: (d) => d.abc.length > 0 },
+  { id: "capacity-sites", title: "Capacity by site (network)", category: "capacity", frame: "card", defaultSize: { w: 6, h: 3 }, component: CapacitySites, available: (d) => d.sites.length > 0, flagged: (d) => d.sites.some((s) => s.overload) },
+  { id: "reallocation", title: "Cross-site reallocation", category: "supply", frame: "card", defaultSize: { w: 8, h: 3 }, component: Reallocation, available: (d) => d.sites.length > 0, flagged: (d) => d.reallocations.length > 0 },
+  { id: "plan-budget", title: "Plan vs budget (reconciliation)", category: "governance", frame: "card", defaultSize: { w: 8, h: 3 }, component: PlanBudget, available: (d) => d.budgetVariance.length > 0 },
+  { id: "portfolio", title: "Portfolio — NPI / EOL", category: "demand", frame: "card", defaultSize: { w: 6, h: 3 }, component: PortfolioView, available: (d) => d.portfolio.length > 0 },
+  { id: "demand-control", title: "Weekly demand control", category: "demand", frame: "card", defaultSize: { w: 6, h: 3 }, component: DemandControl, available: (d) => d.demandControl.length > 0 },
+  { id: "scenario", title: "Scenario engine (what-if)", category: "governance", frame: "bare", defaultSize: { w: 12, h: 4 }, component: ScenarioWidget },
+  { id: "cadence", title: "S&OP cadence & governance", category: "governance", frame: "bare", defaultSize: { w: 6, h: 4 }, component: CadenceWidget },
 ];
 
 const BY_ID = new Map(WIDGETS.map((w) => [w.id, w]));
