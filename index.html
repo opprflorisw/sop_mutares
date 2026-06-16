@@ -5,6 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>S&OP Planner — Mutares</title>
+    <script>
+      // Some browser deps (react-grid-layout → react-draggable) read
+      // process.env.* at runtime; shim it so they don't throw
+      // "process is not defined" on drag. Runs before the app module.
+      window.process = window.process || { env: {} };
+    </script>
   </head>
   <body>
     <div id="root"></div>

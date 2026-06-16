@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
 /* ============================================================
-   MUTARES S&OP — Design tokens
-   Corporate navy/blue (Mutares) + clean card surfaces (CRM ref)
-   + semantic status colors (S&OP dashboard ref).
+   MUTARES S&OP — Design tokens (Untitled UI–aligned foundation)
+   Phase 1 of the Untitled UI adoption (docs/untitled-ui-adoption.md):
+   a neutral gray ramp, semantic ramps, radius / shadow / type scales
+   in the Untitled UI system — with the Mutares navy kept as the brand.
+   Existing --color-surface/ink/line aliases are re-pointed onto the
+   gray ramp so the whole UI shifts coherently without call-site churn.
    ============================================================ */
 @theme {
-  /* Brand — Mutares navy/blue */
+  /* Brand — Mutares navy/blue (unchanged) */
   --color-brand-50: #eef5fc;
   --color-brand-100: #e6f1fb;
   --color-brand-200: #c5ddf4;
@@ -18,18 +21,52 @@
   --color-brand-800: #0f3460;
   --color-brand-900: #0c2747;
 
-  /* Neutrals */
-  --color-surface: #ffffff;
-  --color-surface-2: #f7f8fa;
-  --color-surface-3: #eef0f3;
-  --color-line: #e7eaee;
-  --color-line-strong: #d6dbe1;
-  --color-ink: #1a1d21;
-  --color-ink-2: #5b6470;
-  --color-ink-3: #8a929e;
+  /* Neutral gray ramp (Untitled UI) */
+  --color-gray-25: #fcfcfd;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f7;
+  --color-gray-200: #eaecf0;
+  --color-gray-300: #d0d5dd;
+  --color-gray-400: #98a2b3;
+  --color-gray-500: #667085;
+  --color-gray-600: #475467;
+  --color-gray-700: #344054;
+  --color-gray-800: #1d2939;
+  --color-gray-900: #101828;
+  --color-gray-950: #0c111d;
 
-  /* Status — one green, one amber, one red, one purple accent (kept
-     coherent so charts, tags, KPI deltas and bars all read the same). */
+  /* Semantic ramps (Untitled UI) */
+  --color-success-50: #ecfdf3;
+  --color-success-100: #dcfae6;
+  --color-success-200: #abefc6;
+  --color-success-500: #17b26a;
+  --color-success-600: #079455;
+  --color-success-700: #067647;
+  --color-warning-50: #fffaeb;
+  --color-warning-100: #fef0c7;
+  --color-warning-200: #fedf89;
+  --color-warning-500: #f79009;
+  --color-warning-600: #dc6803;
+  --color-warning-700: #b54708;
+  --color-error-50: #fef3f2;
+  --color-error-100: #fee4e2;
+  --color-error-200: #fecdca;
+  --color-error-500: #f04438;
+  --color-error-600: #d92d20;
+  --color-error-700: #b42318;
+
+  /* Neutral aliases — re-pointed onto the gray ramp (keeps every
+     existing var(--color-surface/ink/line…) reference working). */
+  --color-surface: #ffffff;
+  --color-surface-2: var(--color-gray-50);
+  --color-surface-3: var(--color-gray-100);
+  --color-line: var(--color-gray-200);
+  --color-line-strong: var(--color-gray-300);
+  --color-ink: var(--color-gray-900);
+  --color-ink-2: var(--color-gray-600);
+  --color-ink-3: var(--color-gray-400);
+
+  /* Status — coherent single hue each (charts, tags, KPI deltas, bars). */
   --color-good: #1d9e75;
   --color-good-2: #1d9e75;
   --color-warn: #e08a1e;
@@ -46,10 +83,39 @@
   --color-chart-bad: #e24b4a;
   --color-chart-accent: #7f77dd;
 
-  /* Radii */
+  /* Radii (Untitled UI scale) */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+
+  /* Elevation — subtle, low-alpha (Untitled UI) */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+  --shadow-xl: 0 20px 24px -4px rgba(16, 24, 40, 0.08), 0 8px 8px -4px rgba(16, 24, 40, 0.03);
+
+  /* Type scale (size + line-height) — Untitled UI */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.875rem;
+  --text-display-xs: 1.5rem;
+  --text-display-xs--line-height: 2rem;
+  --text-display-sm: 1.875rem;
+  --text-display-sm--line-height: 2.375rem;
+  --text-display-md: 2.25rem;
+  --text-display-md--line-height: 2.75rem;
 }
 
 :root {

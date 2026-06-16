@@ -8,9 +8,9 @@ export default function WorkspaceLayout() {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface-2)]">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-2.5">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-surface)] px-5 py-2.5 shadow-xs">
         <div className="flex items-center gap-2.5">
-          <img src="/mutares.png" alt="Mutares" className="h-4 w-auto" />
+          <img src="/mutares.png" alt="Mutares" className="h-5 w-auto" />
           <span className="border-l border-[var(--color-line)] pl-2.5 text-[12px] font-medium text-[var(--color-ink-2)]">
             S&OP Planner
           </span>
@@ -74,10 +74,10 @@ function WsTab({
       to={to}
       end={end}
       className={({ isActive }) =>
-        `flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] transition-colors ${
+        `flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-brand-300)] ${
           isActive
-            ? "bg-[var(--color-brand-50)] font-medium text-[var(--color-brand-700)]"
-            : "text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
+            ? "bg-[var(--color-brand-50)] font-semibold text-[var(--color-brand-700)]"
+            : "font-medium text-[var(--color-ink-2)] hover:bg-[var(--color-gray-100)] hover:text-[var(--color-ink)]"
         }`
       }
     >

@@ -10,9 +10,6 @@ import AccountManagementPage from "./pages/AccountManagementPage";
 import DashboardUnderstandingPage from "./pages/DashboardUnderstandingPage";
 import ToolLayout from "./components/ToolLayout";
 import DashboardsPage from "./pages/tool/DashboardsPage";
-import DemandPage from "./pages/tool/DemandPage";
-import SupplyPage from "./pages/tool/SupplyPage";
-import CapacityPage from "./pages/tool/CapacityPage";
 import SettingsPage from "./pages/tool/SettingsPage";
 
 function FullScreenLoader() {
@@ -61,10 +58,10 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/tool/overview" replace />} />
-        <Route path="overview" element={<DashboardsPage />} />
-        <Route path="demand" element={<DemandPage />} />
-        <Route path="supply" element={<SupplyPage />} />
-        <Route path="capacity" element={<CapacityPage />} />
+        <Route path="overview" element={<DashboardsPage page="overview" />} />
+        <Route path="demand" element={<DashboardsPage page="demand" />} />
+        <Route path="supply" element={<DashboardsPage page="supply" />} />
+        <Route path="capacity" element={<DashboardsPage page="capacity" />} />
         <Route path="settings" element={<SettingsPage />} />
         {/* legacy routes folded into the 3 core modules */}
         <Route path="workflow" element={<Navigate to="/tool/overview" replace />} />

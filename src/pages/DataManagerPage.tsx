@@ -11,7 +11,7 @@ import {
 import { parseCsv, triggerDownload } from "../lib/csv";
 import { runDataCheck, type DataCheckResult } from "../lib/dataCheck";
 import { aiDataNarrative, type AiSource } from "../lib/ai";
-import { Card, CardTitle, Button, Tag, PlaceholderNote } from "../components/ui";
+import { Card, CardTitle, Button, Tag } from "../components/ui";
 import CsvModal from "../components/CsvModal";
 import {
   IconArrowLeft, IconArrowRight, IconUpload, IconDownload,
@@ -140,10 +140,6 @@ export default function DataManagerPage() {
           </section>
         );
       })}
-
-      <PlaceholderNote phase="Convex">
-        Files, versions and validation are stored in the Convex backend — persistent across browsers and devices.
-      </PlaceholderNote>
 
       {modal && <CsvModal template={modal.template} version={modal.version} onClose={() => setModal(null)} />}
     </div>

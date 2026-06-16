@@ -4,7 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import { Button } from "../../components/ui";
 import {
   IconFile, IconDashboard, IconChart, IconFactory, IconBox,
-  IconBolt, IconPlus, IconSave, IconTrash, IconX, IconGear,
+  IconBolt, IconPlus, IconSave, IconTrash, IconX, IconGear, IconCopy,
 } from "../../components/icons";
 import { NoData } from "./OverviewPage";
 import { useProjectData } from "../../lib/projectData";
@@ -14,12 +14,12 @@ import type { Layout } from "react-grid-layout";
 import DashboardGrid from "../../components/DashboardGrid";
 import ReportBuilderModal from "../../components/ReportBuilderModal";
 import { PREDEFINED_DASHBOARDS, resolveDashboard, WIDGETS, getWidget } from "../../components/widgets/registry";
-import type { DashboardDef, PlacedWidget } from "../../lib/dashboards";
+import type { DashboardDef, DashboardPage, PlacedWidget } from "../../lib/dashboards";
 
 const ICONS: Record<string, typeof IconDashboard> = {
   dashboard: IconDashboard, chart: IconChart, factory: IconFactory, box: IconBox, bolt: IconBolt, file: IconFile,
 };
-const KEY = (pid: string) => `sop_dashboard_${pid}`;
+const KEY = (pid: string, page: DashboardPage) => `sop_dashboard_${pid}_${page}`;
 
 // Add-widget palette — stat KPIs expand into presets; other widgets are single entries.
 const STAT_PRESETS: { label: string; metric: string }[] = [
@@ -36,9 +36,11 @@ const PALETTE: PaletteEntry[] = [
   ...WIDGETS.filter((w) => w.id !== "stat").map((w) => ({ label: w.title, widgetId: w.id })),
 ];
 
-type Draft = { id?: string; name: string; icon: string; description: string; widgets: PlacedWidget[] };
+// In-memory dashboard for the host — a predefined template or a saved one (_stored).
+type HostDash = DashboardDef & { _stored?: boolean };
+type Draft = { id?: string; baseId?: string; name: string; icon: string; description: string; widgets: PlacedWidget[] };
 
-export default function DashboardsPage() {
+export default function DashboardsPage({ page = "overview" }: { page?: DashboardPage }) {
   const d = useProjectData();
   const { activeProject } = useProjects();
   const { user } = useAuth();
@@ -48,33 +50,52 @@ export default function DashboardsPage() {
   const updateMut = useMutation(api.dashboards.update);
   const removeMut = useMutation(api.dashboards.remove);
 
+  const firstId = useMemo(
+    () => PREDEFINED_DASHBOARDS.find((x) => (x.page ?? "overview") === page)?.id ?? "exec",
+    [page]
+  );
   const [selectedId, setSelectedId] = useState<string>(() =>
-    (activeProject && localStorage.getItem(KEY(activeProject.id))) || "exec"
+    (activeProject && localStorage.getItem(KEY(activeProject.id, page))) || firstId
   );
   const [reportOpen, setReportOpen] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const editing = draft !== null;
 
-  const dashboards: DashboardDef[] = useMemo(() => [
-    ...PREDEFINED_DASHBOARDS,
-    ...stored.map((s) => ({ id: s.id, name: s.name, icon: s.icon ?? "dashboard", description: s.description, widgets: s.widgets as PlacedWidget[] })),
-  ], [stored]);
+  // Saved dashboards for this page (shadow predefined of matching baseId, keeping its slot).
+  const dashboards: HostDash[] = useMemo(() => {
+    const toDef = (s: (typeof stored)[number]): HostDash => ({
+      id: s.id, name: s.name, icon: s.icon ?? "dashboard", description: s.description,
+      page, baseId: s.baseId, widgets: s.widgets as PlacedWidget[], _stored: true,
+    });
+    const predefined = PREDEFINED_DASHBOARDS.filter((x) => (x.page ?? "overview") === page);
+    const pageStored = stored.filter((s) => (s.page ?? "overview") === page);
+    const list: HostDash[] = [];
+    for (const p of predefined) {
+      const shadow = pageStored.find((s) => s.baseId === p.id);
+      list.push(shadow ? toDef(shadow) : p);
+    }
+    for (const s of pageStored) if (!s.baseId) list.push(toDef(s));
+    return list;
+  }, [stored, page]);
 
   const current = useMemo(() => dashboards.find((x) => x.id === selectedId) ?? dashboards[0], [dashboards, selectedId]);
 
   useEffect(() => {
-    if (activeProject && !editing) localStorage.setItem(KEY(activeProject.id), selectedId);
-  }, [selectedId, activeProject, editing]);
+    if (activeProject && !editing && current) localStorage.setItem(KEY(activeProject.id, page), current.id);
+  }, [current, activeProject, editing, page]);
 
   if (!d.hasData || !activeProject) return <NoData />;
 
-  const widgets = editing ? draft!.widgets : resolveDashboard(current, d);
+  const widgets = editing ? draft!.widgets : current ? resolveDashboard(current, d) : [];
 
   function startEdit() {
-    if (current.system || current.dynamic) {
-      setDraft({ name: `${current.name} (copy)`, icon: current.icon ?? "dashboard", description: current.description ?? "", widgets: resolveDashboard(current, d) });
+    if (!current) return;
+    if (current._stored) {
+      // Edit an existing saved dashboard (may itself be a shadow of a predefined).
+      setDraft({ id: current.id, baseId: current.baseId, name: current.name, icon: current.icon ?? "dashboard", description: current.description ?? "", widgets: current.widgets });
     } else {
-      setDraft({ id: current.id, name: current.name, icon: current.icon ?? "dashboard", description: current.description ?? "", widgets: current.widgets });
+      // Edit a predefined template — "Save" overwrites it by creating a saved shadow.
+      setDraft({ baseId: current.id, name: current.name, icon: current.icon ?? "dashboard", description: current.description ?? "", widgets: resolveDashboard(current, d) });
     }
   }
   function addWidget(e: PaletteEntry) {
@@ -100,14 +121,20 @@ export default function DashboardsPage() {
       return changed ? { ...dr, widgets: next } : dr;
     });
   }
-  async function save() {
+  async function save(asNew: boolean) {
     if (!draft) return;
-    const payload = { name: draft.name.trim() || "Untitled", icon: draft.icon, description: draft.description.trim(), widgets: draft.widgets };
-    if (draft.id) {
-      await updateMut({ id: draft.id as never, ...payload });
+    const payload = { name: draft.name.trim() || "Untitled", icon: draft.icon, description: draft.description.trim(), page, widgets: draft.widgets };
+    if (!asNew && draft.id) {
+      // Overwrite the existing saved dashboard in place.
+      await updateMut({ id: draft.id as never, ...payload, baseId: draft.baseId });
       setSelectedId(draft.id);
+    } else if (!asNew && draft.baseId) {
+      // Overwrite a predefined template → persist a saved shadow that takes its place.
+      const id = await createMut({ projectId: activeProject!.id as never, owner: user?.email ?? "unknown", ...payload, baseId: draft.baseId });
+      setSelectedId(id as unknown as string);
     } else {
-      const id = await createMut({ projectId: activeProject!.id as never, owner: user?.email ?? "unknown", ...payload });
+      // Save as new (a copy) or save a brand-new dashboard.
+      const id = await createMut({ projectId: activeProject!.id as never, owner: user?.email ?? "unknown", ...payload, name: asNew ? `${payload.name} (copy)` : payload.name });
       setSelectedId(id as unknown as string);
     }
     setDraft(null);
@@ -119,47 +146,56 @@ export default function DashboardsPage() {
     if (!draft?.id) return;
     await removeMut({ id: draft.id as never });
     setDraft(null);
-    setSelectedId("exec");
+    setSelectedId(firstId);
   }
+
+  const brandNew = editing && !draft!.id && !draft!.baseId;
 
   return (
     <div className="space-y-4">
-      {editing ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <input
-            value={draft!.name}
-            onChange={(e) => setDraft((dr) => dr && { ...dr, name: e.target.value })}
-            className="w-[280px] max-w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[16px] font-semibold outline-none focus:border-[var(--color-brand-500)]"
-            placeholder="Dashboard name"
-            autoFocus
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <AddWidgetMenu onAdd={addWidget} />
-            {draft!.id && <Button variant="ghost" onClick={del}><IconTrash size={14} /> Delete</Button>}
-            <Button variant="primary" onClick={save}><IconSave size={14} /> {draft!.id ? "Save" : "Save as new"}</Button>
-            <Button onClick={() => setDraft(null)}><IconX size={14} /> Cancel</Button>
+      {/* Distinct top band — tabs / editor sit on white above the grey page. */}
+      <div className="-mx-4 -mt-4 border-b border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2.5 shadow-xs lg:-mx-6 lg:-mt-5 lg:px-6 lg:py-3">
+        {editing ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <input
+              value={draft!.name}
+              onChange={(e) => setDraft((dr) => dr && { ...dr, name: e.target.value })}
+              className="w-[280px] max-w-full rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-[15px] font-semibold outline-none focus:border-[var(--color-brand-500)] focus:ring-2 focus:ring-[var(--color-brand-300)]"
+              placeholder="Dashboard name"
+              autoFocus
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <AddWidgetMenu onAdd={addWidget} />
+              {draft!.id && <Button variant="ghost" onClick={del}><IconTrash size={14} /> Delete</Button>}
+              <Button variant="primary" onClick={() => save(false)}><IconSave size={14} /> Save</Button>
+              {!brandNew && <Button onClick={() => save(true)}><IconCopy size={14} /> Save as new</Button>}
+              <Button variant="ghost" onClick={() => setDraft(null)}><IconX size={14} /> Cancel</Button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between gap-3">
-          <DashboardTabs dashboards={dashboards} currentId={current.id} onSelect={setSelectedId} onCustomise={startEdit} onNew={startNew} />
-          <Button variant="primary" className="shrink-0" onClick={() => setReportOpen(true)}><IconFile size={14} /> Build report</Button>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <DashboardTabs dashboards={dashboards} currentId={current?.id ?? ""} onSelect={setSelectedId} onCustomise={startEdit} onNew={startNew} />
+            <Button variant="primary" className="shrink-0" onClick={() => setReportOpen(true)}><IconFile size={14} /> Build report</Button>
+          </div>
+        )}
+      </div>
 
-      {!editing && current.description && (
+      {!editing && current?.description && (
         <p className="-mt-1 text-[12px] text-[var(--color-ink-2)]">{current.description}</p>
       )}
 
       {editing && (
         <div className="rounded-lg border border-dashed border-[var(--color-brand-300)] bg-[var(--color-brand-50)] px-3.5 py-2 text-[12px] text-[var(--color-brand-700)]">
-          Editing — drag the ⠿ handle to move, drag a corner to resize, add widgets from the menu, remove with ×. Saving {draft!.id ? "updates this dashboard." : "creates a new dashboard for this project."}
+          Editing — drag the ⠿ handle to move, drag a corner to resize, add widgets from the menu, remove with ×.{" "}
+          {brandNew
+            ? "Save creates this dashboard for the project."
+            : "Save overwrites this dashboard · Save as new keeps the original and creates a copy."}
         </div>
       )}
 
       {widgets.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--color-line-strong)] py-16 text-center text-[13px] text-[var(--color-ink-3)]">
-          {current.dynamic ? "No exceptions — the plan is balanced." : "Empty dashboard — add widgets to get started."}
+          {current?.dynamic ? "No exceptions — the plan is balanced." : "Empty dashboard — add widgets to get started."}
         </div>
       ) : (
         <DashboardGrid widgets={widgets} d={d} project={activeProject} editMode={editing} onRemove={removeWidget} onLayoutChange={applyLayout} />
@@ -196,7 +232,7 @@ function AddWidgetMenu({ onAdd }: { onAdd: (e: PaletteEntry) => void }) {
 function DashboardTabs({
   dashboards, currentId, onSelect, onCustomise, onNew,
 }: {
-  dashboards: DashboardDef[];
+  dashboards: HostDash[];
   currentId: string;
   onSelect: (id: string) => void;
   onCustomise: () => void;

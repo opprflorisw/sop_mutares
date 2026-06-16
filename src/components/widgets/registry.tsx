@@ -423,8 +423,9 @@ const place = (widgetId: string, w?: number, config?: Record<string, unknown>): 
 const stat = (metric: string): PlacedWidget => place("stat", 2, { metric });
 
 export const PREDEFINED_DASHBOARDS: DashboardDef[] = [
+  // ---- Overview page ----
   {
-    id: "exec", name: "Executive snapshot", icon: "dashboard", system: true,
+    id: "exec", name: "Executive snapshot", icon: "dashboard", page: "overview", system: true,
     description: "The monthly S&OP one-glance: KPIs, the gap, exceptions and the governance log.",
     widgets: [
       stat("revenue"), stat("cm"), stat("accuracy"), stat("invDays"), stat("capacity"), stat("revenueAtRisk"),
@@ -434,12 +435,24 @@ export const PREDEFINED_DASHBOARDS: DashboardDef[] = [
     ],
   },
   {
-    id: "exceptions", name: "Exceptions first", icon: "bolt", system: true, dynamic: true,
+    id: "exceptions", name: "Exceptions first", icon: "bolt", page: "overview", system: true, dynamic: true,
     description: "Auto-built from the data — only what's flagged: gaps, overloads, forecast error, supplier risk, SLOB.",
     widgets: [],
   },
   {
-    id: "demand", name: "Demand deep-dive", icon: "chart", system: true,
+    id: "board", name: "Board pack", icon: "file", page: "overview", system: true,
+    description: "A tight leadership pack: headline KPIs, the gap, capacity, risks and decisions.",
+    widgets: [
+      stat("revenue"), stat("cm"), stat("accuracy"), stat("invDays"), stat("capacity"), stat("revenueAtRisk"),
+      place("gap-chart", 6), place("capacity-lines", 6),
+      place("exceptions", 12),
+      place("vulops", 6), place("decisions", 6),
+    ],
+  },
+
+  // ---- Demand page ----
+  {
+    id: "demand", name: "Demand deep-dive", icon: "chart", page: "demand", system: true,
     description: "Consensus plan, revenue & margin, forecast value-added and accuracy.",
     widgets: [
       stat("revenue"), stat("cm"), stat("accuracy"), stat("bias"),
@@ -449,7 +462,18 @@ export const PREDEFINED_DASHBOARDS: DashboardDef[] = [
     ],
   },
   {
-    id: "supply", name: "Supply & gap", icon: "factory", system: true,
+    id: "demand-accuracy", name: "Forecast & accuracy", icon: "chart", page: "demand", system: true,
+    description: "Forecast quality: accuracy, BIAS by lag and SKU-level error to act on.",
+    widgets: [
+      stat("accuracy"), stat("bias"), stat("revenue"), stat("cm"),
+      place("forecast-lag", 12),
+      place("accuracy-table", 12),
+    ],
+  },
+
+  // ---- Supply page ----
+  {
+    id: "supply", name: "Supply & gap", icon: "factory", page: "supply", system: true,
     description: "The constrained plan, the gap, MRP/supplier risk and inventory.",
     widgets: [
       stat("revenueAtRisk"), stat("invTurns"), stat("slob"), stat("overloaded"),
@@ -459,7 +483,18 @@ export const PREDEFINED_DASHBOARDS: DashboardDef[] = [
     ],
   },
   {
-    id: "capacity", name: "Capacity / RCCP", icon: "box", system: true,
+    id: "inventory", name: "Inventory health", icon: "box", page: "supply", system: true,
+    description: "Days, turns, the glide to target and slow/obsolete stock.",
+    widgets: [
+      stat("invDays"), stat("invTurns"), stat("slob"), stat("cm"),
+      place("inventory-plants", 6), place("inventory-projection", 6),
+      place("slob", 12),
+    ],
+  },
+
+  // ---- Capacity page ----
+  {
+    id: "capacity", name: "Capacity / RCCP", icon: "box", page: "capacity", system: true,
     description: "Line utilisation vs planned demonstrated capacity and the production schedule.",
     widgets: [
       stat("capacity"), stat("plannedCapacity"), stat("overloaded"), stat("revenueAtRisk"),
@@ -468,22 +503,12 @@ export const PREDEFINED_DASHBOARDS: DashboardDef[] = [
     ],
   },
   {
-    id: "inventory", name: "Inventory health", icon: "box", system: true,
-    description: "Days, turns, the glide to target and slow/obsolete stock.",
+    id: "capacity-load", name: "Load & bottleneck", icon: "box", page: "capacity", system: true,
+    description: "Where the load lands by period and which line is the binding constraint.",
     widgets: [
-      stat("invDays"), stat("invTurns"), stat("slob"), stat("cm"),
-      place("inventory-plants", 6), place("inventory-projection", 6),
-      place("slob", 12),
-    ],
-  },
-  {
-    id: "board", name: "Board pack", icon: "file", system: true,
-    description: "A tight leadership pack: headline KPIs, the gap, capacity, risks and decisions.",
-    widgets: [
-      stat("revenue"), stat("cm"), stat("accuracy"), stat("invDays"), stat("capacity"), stat("revenueAtRisk"),
-      place("gap-chart", 6), place("capacity-lines", 6),
-      place("exceptions", 12),
-      place("vulops", 6), place("decisions", 6),
+      stat("capacity"), stat("plannedCapacity"), stat("overloaded"), stat("revenueAtRisk"),
+      place("capacity-heatmap", 12),
+      place("capacity-lines", 12),
     ],
   },
 ];

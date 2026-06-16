@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
-import { Card, CardTitle, KpiTile, Tag, Button, PlaceholderNote } from "../../components/ui";
+import { Card, CardTitle, KpiTile, Tag, Button } from "../../components/ui";
 import { IconFile } from "../../components/icons";
 import { useProjectData, fmtMoney, fmtUnits } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
@@ -158,10 +158,10 @@ export function NoData() {
   return (
     <div className="space-y-4">
       <PageHeader title="No data yet" subtitle="This project has no SKU master / forecast loaded" />
-      <PlaceholderNote phase="Data">
-        Add data files in <Link to="/workspace" className="underline">the Workspace → Manage data</Link>.
+      <div className="rounded-xl border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-4 py-3 text-[12.5px] text-[var(--color-ink-2)]">
+        Add data files in <Link to="/workspace" className="font-medium text-[var(--color-brand-700)] underline">the Workspace → Manage data</Link>.
         The modules compute live from the project's uploaded CSVs.
-      </PlaceholderNote>
+      </div>
     </div>
   );
 }

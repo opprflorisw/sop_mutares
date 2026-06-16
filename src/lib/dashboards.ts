@@ -11,6 +11,10 @@
 export type WidgetCategory =
   | "kpi" | "demand" | "supply" | "capacity" | "inventory" | "governance";
 
+// Which left-nav page a dashboard belongs to. Each main page (Overview,
+// Demand, Supply, Capacity) hosts its own set of loadable dashboards.
+export type DashboardPage = "overview" | "demand" | "supply" | "capacity";
+
 export type PlacedWidget = {
   widgetId: string;
   w: number; // grid columns (1–12)
@@ -25,8 +29,10 @@ export type DashboardDef = {
   name: string;
   icon?: string; // icon key
   description?: string;
+  page?: DashboardPage; // which main page this dashboard lives under (default "overview")
   system?: boolean; // built-in template (not user-deletable)
   dynamic?: boolean; // widgets computed from data (exceptions-first)
+  baseId?: string; // when set, this saved dashboard overrides the predefined of this id
   widgets: PlacedWidget[];
 };
 

@@ -58,6 +58,10 @@ export default defineSchema({
     name: v.string(),
     icon: v.optional(v.string()),
     description: v.optional(v.string()),
+    // Which main page (overview/demand/supply/capacity) this dashboard lives under.
+    page: v.optional(v.string()),
+    // When set, this saved dashboard overrides the predefined template of this id.
+    baseId: v.optional(v.string()),
     owner: v.string(), // email of creator
     widgets: v.array(
       v.object({
