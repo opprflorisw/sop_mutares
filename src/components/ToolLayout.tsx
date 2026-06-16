@@ -3,6 +3,7 @@ import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-route
 import { useProjects } from "../lib/projects";
 import { useAuth } from "../lib/auth";
 import { useCompanyLogo } from "../lib/branding";
+import { useUserProfile } from "../lib/settingsStore";
 import AssistantDrawer from "./AssistantDrawer";
 import {
   IconDashboard, IconChart, IconFactory, IconBox,
@@ -59,6 +60,7 @@ export default function ToolLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const companyLogo = useCompanyLogo(activeProject?.id);
+  const [profile] = useUserProfile();
 
   if (loading) {
     return (
@@ -139,9 +141,10 @@ export default function ToolLayout() {
 
           <div className="ml-auto flex items-center gap-2.5">
             <UserMenu
-              name={user?.name ?? "User"}
+              name={profile.fullName?.trim() || user?.name || "User"}
               email={user?.email ?? ""}
-              role={user?.role ?? ""}
+              role={profile.jobTitle?.trim() || user?.role || ""}
+              avatar={profile.avatar ?? null}
               onSettings={() => navigate("/tool/settings")}
               onSignOut={() => { logout(); navigate("/login"); }}
             />
@@ -162,9 +165,9 @@ export default function ToolLayout() {
 }
 
 function UserMenu({
-  name, email, role, onSettings, onSignOut,
+  name, email, role, avatar, onSettings, onSignOut,
 }: {
-  name: string; email: string; role: string;
+  name: string; email: string; role: string; avatar: string | null;
   onSettings: () => void; onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -180,9 +183,9 @@ function UserMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         title={name}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-brand-100)] text-[12px] font-semibold text-[var(--color-brand-700)] outline-none ring-1 ring-inset ring-[var(--color-brand-200)] transition-shadow hover:ring-2 focus-visible:ring-2 focus-visible:ring-[var(--color-brand-300)]"
+        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--color-brand-100)] text-[12px] font-semibold text-[var(--color-brand-700)] outline-none ring-1 ring-inset ring-[var(--color-brand-200)] transition-shadow hover:ring-2 focus-visible:ring-2 focus-visible:ring-[var(--color-brand-300)]"
       >
-        {name.slice(0, 1).toUpperCase()}
+        {avatar ? <img src={avatar} alt={name} className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] shadow-xl">

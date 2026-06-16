@@ -1,7 +1,7 @@
 // Vercel serverless function — the S&OP chat assistant, grounded on
 // a short data context, answered by Gemini. Key stays server-side.
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,11 +17,30 @@ export default async function handler(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const context = body.context || "";
+  // Only Gemini models are wired to this endpoint; ignore anything else.
+  const MODEL = typeof body.model === "string" && /^gemini[\w.\-]*$/.test(body.model) ? body.model : DEFAULT_MODEL;
+  const persona = typeof body.profilePrompt === "string" && body.profilePrompt.trim()
+    ? `\n\nAdopt this persona for your reply: ${body.profilePrompt.trim()}`
+    : "";
 
   const system = `You are the S&OP Assistant inside a Sales & Operations Planning tool for Mutares portfolio companies.
-Answer concisely (2-4 sentences), in plain language a non-expert manager understands, grounded ONLY in this project context:
+Answer in plain language a non-expert manager understands. Be focused and complete — don't ramble, but don't cut a useful answer short.
+
+Format every reply in GitHub-flavored markdown:
+- Use **bold** for the key numbers and names.
+- Use numbered lists for sequences/steps and "- " bullets for options.
+- Be specific with numbers whenever the context provides them.
+
+When a point relates to a screen in the app, add ONE markdown link to the most relevant page so the user can go see it (use the page name as the label):
+- Executive snapshot & board packs: /tool/overview
+- Demand, forecast & accuracy: /tool/demand
+- Supply, the gap, inventory & SLOB: /tool/supply
+- Capacity / RCCP load & bottleneck: /tool/capacity
+Only link when it genuinely helps.${persona}
+
+Ground your answer ONLY in this project context:
 ${context}
-If asked something the context can't answer, say so briefly and suggest what data would help. Be specific with numbers when the context provides them.`;
+If asked something the context can't answer, say so briefly and suggest what data would help.`;
 
   const contents = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -37,7 +56,7 @@ If asked something the context can't answer, say so briefly and suggest what dat
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents,
-          generationConfig: { temperature: 0.5, maxOutputTokens: 500 },
+          generationConfig: { temperature: 0.5, maxOutputTokens: 1200 },
         }),
       }
     );

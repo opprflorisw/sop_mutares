@@ -32,9 +32,10 @@ export async function aiDataNarrative(
 /** Conversational assistant grounded on a short data context. */
 export async function aiChat(
   messages: { role: "user" | "assistant"; text: string }[],
-  context: string
+  context: string,
+  opts: { model?: string; profilePrompt?: string } = {}
 ): Promise<{ text: string; source: AiSource }> {
-  const text = await postJson("/api/assistant", { messages, context });
+  const text = await postJson("/api/assistant", { messages, context, ...opts });
   if (text) return { text, source: "gemini" };
   return { text: localChat(messages), source: "local" };
 }
@@ -70,11 +71,11 @@ function localNarrative(summary: string): string {
 function localChat(messages: { role: string; text: string }[]): string {
   const last = messages.filter((m) => m.role === "user").pop()?.text.toLowerCase() ?? "";
   const canned: Record<string, string> = {
-    gap: "Biggest demand-supply gap: Profile extrusions — 25% short (~€149k at risk), constrained by Bawal Extrusion-2 capacity.",
-    epdm: "EPDM-12 rubber is short from Wk 23, constraining GlassRun and Profile (~€122k at risk).",
-    capacity: "Bawal Extrusion-2 is overloaded at 111% (Nov–Dec). Consider a Saturday shift or re-routing to Sanand (76%).",
-    bias: "Forecast bias is -4.8% (systematic over-forecast). Recalibrate DE-4421 and FR-0912 before consensus.",
+    gap: "The biggest demand–supply gap is on **Profile extrusions** — **25% short** (~₹149k at risk), constrained by Bawal Extrusion-2 capacity.\n\nTo close it:\n1. Add a Saturday shift on Extrusion-2.\n2. Re-route ~14k units to Sanand (76% utilised).\n\nSee the full picture in [Supply & gap](/tool/supply).",
+    epdm: "**EPDM-12 rubber** is short from **Wk 23**, constraining GlassRun and Profile families (~₹122k at risk).\n\n- Expedite the open PO or qualify a second supplier.\n- Review the exposure in [Supply & gap](/tool/supply).",
+    capacity: "**Bawal Extrusion-2** is overloaded at **111%** (Nov–Dec).\n\nOptions:\n1. Saturday shift.\n2. Re-route to Sanand (76% utilised).\n\nDetail in [Capacity / RCCP](/tool/capacity).",
+    bias: "Forecast **bias is −4.8%** (systematic over-forecast). Recalibrate **DE-4421** and **FR-0912** before consensus.\n\nReview accuracy in [Demand](/tool/demand).",
   };
   for (const [k, v] of Object.entries(canned)) if (last.includes(k)) return v;
-  return "Deploy with the Gemini key to chat over live data. Try: \"biggest gap\", \"EPDM\", \"capacity\", \"bias\".";
+  return "Deploy with the Gemini key to chat over live data. Meanwhile try: **biggest gap**, **EPDM**, **capacity** or **bias** — and I'll point you to the right [dashboard](/tool/overview).";
 }
