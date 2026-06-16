@@ -419,10 +419,12 @@ export function computeProjectData(project: Project | null): ProjectData {
   const inventoryProjection: ProjectData["inventoryProjection"] = [];
   if (invTotalAll > 0 && perDayAll > 0) {
     inventoryProjection.push({ m: latestInv ? ym(latestInv) : "now", days: +invDaysWeighted.toFixed(1), value: invTotalAll, planned: false });
+    const valuePerDay = invDaysWeighted ? invTotalAll / invDaysWeighted : perDayAll;
     let days = invDaysWeighted;
+    const reducing = invDaysWeighted > inventoryTarget; // only draw down when over target
     for (const m of projMonths) {
-      days = days + (inventoryTarget - days) / 3; // close a third of the gap each month
-      inventoryProjection.push({ m, days: +days.toFixed(1), value: Math.round(days * perDayAll), planned: true });
+      if (reducing) days = days + (inventoryTarget - days) / 3; // close a third of the gap each month
+      inventoryProjection.push({ m, days: +days.toFixed(1), value: Math.round(days * valuePerDay), planned: true });
     }
   }
 

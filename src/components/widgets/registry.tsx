@@ -59,7 +59,7 @@ const Stat: FC<WidgetProps> = ({ d, config }) => {
 const RevenueTrend: FC<WidgetProps> = ({ d }) => {
   const s = d.demandSeries.map((p) => ({ ...p, m: p.m.slice(2) }));
   return (
-    <div className="h-[210px]">
+    <div className="h-full min-h-[170px]">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={s} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
@@ -79,7 +79,7 @@ const RevenueTrend: FC<WidgetProps> = ({ d }) => {
 const GapChart: FC<WidgetProps> = ({ d }) => {
   const data = d.families.map((f) => ({ short: f.family, demand: f.unconstrained, supply: f.constrained, gap: f.gapUnits }));
   return (
-    <div className="h-[210px]">
+    <div className="h-full min-h-[170px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 6, right: 8, left: 4, bottom: 0 }} barGap={2}>
           <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
@@ -96,28 +96,52 @@ const GapChart: FC<WidgetProps> = ({ d }) => {
   );
 };
 
-const GapTable: FC<WidgetProps> = ({ d }) => (
-  <table className="w-full text-[12px]">
-    <thead className="text-left text-[11px] text-[var(--color-ink-2)]">
-      <tr><th className="py-1.5 font-medium">Family</th><th className="py-1.5 text-right font-medium">Demand</th><th className="py-1.5 text-right font-medium">Supply</th><th className="py-1.5 text-right font-medium">Gap</th><th className="py-1.5 text-right font-medium">At risk</th><th className="py-1.5 font-medium">Status</th></tr>
-    </thead>
-    <tbody>
-      {d.families.map((f) => {
-        const con = f.gapUnits > 0;
-        return (
-          <tr key={f.family} className="border-t border-[var(--color-line)]">
-            <td className="py-1.5 font-medium"><span className="mr-1.5 inline-block h-2 w-2 rounded-sm align-middle" style={{ background: f.color }} />{f.family}</td>
-            <td className="py-1.5 text-right">{fmtUnits(f.unconstrained)}</td>
-            <td className="py-1.5 text-right">{fmtUnits(f.constrained)}</td>
-            <td className={`py-1.5 text-right font-medium ${con ? "text-[var(--color-bad)]" : "text-[var(--color-good-2)]"}`}>{con ? `-${fmtUnits(f.gapUnits)}` : "0"}</td>
-            <td className="py-1.5 text-right">{f.revenueAtRisk > 0 ? fmtMoney(f.revenueAtRisk, d.currency) : "—"}</td>
-            <td className="py-1.5"><Tag tone={con ? "bad" : "good"}>{con ? "Constrained" : "Met"}</Tag></td>
-          </tr>
-        );
-      })}
-    </tbody>
-  </table>
-);
+const GapTable: FC<WidgetProps> = ({ d }) => {
+  const maxD = Math.max(1, ...d.families.map((f) => f.unconstrained));
+  return (
+    <table className="w-full text-[12px]">
+      <thead className="text-left text-[11px] text-[var(--color-ink-3)]">
+        <tr>
+          <th className="pb-2 font-medium">Family</th>
+          <th className="pb-2 text-right font-medium">Demand</th>
+          <th className="pb-2 text-right font-medium">Supply</th>
+          <th className="pb-2 text-right font-medium">Gap</th>
+          <th className="hidden pb-2 pl-5 font-medium sm:table-cell">Demand vs supply</th>
+          <th className="pb-2 pl-5 text-right font-medium">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {d.families.map((f) => {
+          const con = f.gapUnits > 0;
+          const dW = (f.unconstrained / maxD) * 100;
+          const sW = (f.constrained / maxD) * 100;
+          return (
+            <tr key={f.family} className="border-t border-[var(--color-line)]">
+              <td className="py-2 font-medium"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: f.color }} />{f.family}</td>
+              <td className="py-2 text-right tabular-nums text-[var(--color-ink)]">{fmtUnits(f.unconstrained)}</td>
+              <td className="py-2 text-right tabular-nums text-[var(--color-ink)]">{fmtUnits(f.constrained)}</td>
+              <td className={`py-2 text-right font-semibold tabular-nums ${con ? "text-[var(--color-bad)]" : "text-[var(--color-ink-3)]"}`}>{con ? `−${fmtUnits(f.gapUnits)}` : "—"}</td>
+              <td className="hidden py-2 pl-5 sm:table-cell" style={{ minWidth: 150 }}>
+                <div className="relative h-4 w-full overflow-hidden rounded bg-[var(--color-surface-3)]">
+                  <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${dW}%`, background: "#cfe0f3" }} />
+                  <div className="absolute inset-y-0 left-0 rounded" style={{ width: `${sW}%`, background: con ? C.supply : C.good }} />
+                </div>
+              </td>
+              <td className="py-2 pl-5 text-right">
+                {con ? (
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    <span className="text-[11px] font-medium text-[var(--color-bad)]">{fmtMoney(f.revenueAtRisk, d.currency)}</span>
+                    <Tag tone="bad">Constrained</Tag>
+                  </span>
+                ) : <Tag tone="good">Met</Tag>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
 
 const PlanBridge: FC<WidgetProps> = ({ d }) => {
   const baseline = d.kpis.revenueProjection;
@@ -159,25 +183,25 @@ const AccuracyTable: FC<WidgetProps> = ({ d }) => (
 );
 
 const CustomerMix: FC<WidgetProps> = ({ d }) => (
-  <>
-    <div className="h-[170px]">
+  <div className="flex h-full min-h-[180px] flex-col">
+    <div className="min-h-0 flex-1">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={d.customerMix} dataKey="share" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={1}>
+          <Pie data={d.customerMix} dataKey="share" nameKey="name" innerRadius="55%" outerRadius="85%" paddingAngle={1}>
             {d.customerMix.map((c) => <Cell key={c.name} fill={c.color} />)}
           </Pie>
           <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} contentStyle={TOOLTIP_STYLE} />
         </PieChart>
       </ResponsiveContainer>
     </div>
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-[var(--color-ink-2)]">
+    <div className="mt-2 flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-[var(--color-ink-2)]">
       {d.customerMix.slice(0, 6).map((c) => <span key={c.name} className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: c.color }} />{c.name} {(c.share * 100).toFixed(0)}%</span>)}
     </div>
-  </>
+  </div>
 );
 
 const ForecastLag: FC<WidgetProps> = ({ d }) => (
-  <div className="h-[190px]">
+  <div className="h-full min-h-[170px]">
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={d.forecastLag.map((p) => ({ ...p, m: p.m.slice(2) }))} margin={{ top: 6, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
@@ -235,8 +259,8 @@ const CapacityHeatmap: FC<WidgetProps> = ({ d }) => (
 const InventoryPlants: FC<WidgetProps> = ({ d }) => {
   const data = d.plants.map((p) => ({ name: p.name, rm: p.rm, wip: p.wip, fg: p.fg }));
   return (
-    <>
-      <div className="h-[170px]">
+    <div className="flex h-full min-h-[180px] flex-col">
+      <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
@@ -250,10 +274,10 @@ const InventoryPlants: FC<WidgetProps> = ({ d }) => {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--color-ink-2)]">
+      <div className="mt-1 flex shrink-0 flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--color-ink-2)]">
         {d.plants.map((p) => <span key={p.code}>{p.name}: <strong>{p.invDays.toFixed(1)}d</strong>{p.invDays > 40 && <span className="text-[var(--color-bad)]"> ⚠</span>}</span>)}
       </div>
-    </>
+    </div>
   );
 };
 
@@ -299,7 +323,7 @@ const MrpRisk: FC<WidgetProps> = ({ d }) =>
   ) : (
     <div className="divide-y divide-[var(--color-line)]">
       {d.materialAlerts.map((a) => (
-        <div key={a.material} className="py-2.5">
+        <div key={a.material} className="py-2">
           <div className="flex items-center justify-between gap-2"><span className="text-[12px] font-semibold">{a.material}</span><Tag tone={SEV[a.severity]}>{a.reliability}% OTIF · {a.leadTime}d</Tag></div>
           <div className="text-[11px] text-[var(--color-ink-2)]">Affects: {a.affects}</div>
         </div>
@@ -313,7 +337,7 @@ const Issues: FC<WidgetProps> = ({ d }) =>
   ) : (
     <div className="divide-y divide-[var(--color-line)]">
       {d.issues.map((i) => (
-        <div key={i.title} className="flex items-start gap-2.5 py-2.5">
+        <div key={i.title} className="flex items-start gap-2.5 py-2">
           <span className="mt-0.5">{i.severity === "critical" ? "🔴" : i.severity === "high" ? "🟠" : "🟡"}</span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2"><span className="text-[12px] font-semibold">{i.title}</span>{i.valueAtRisk > 0 && <Tag tone={SEV[i.severity]}>{fmtMoney(i.valueAtRisk * 1000, d.currency)}</Tag>}</div>
@@ -350,7 +374,7 @@ const Exceptions: FC<WidgetProps> = ({ d }) => {
   ) : (
     <div className="divide-y divide-[var(--color-line)]">
       {items.map((i, idx) => (
-        <div key={idx} className="flex items-start gap-2.5 py-2.5">
+        <div key={idx} className="flex items-start gap-2.5 py-2">
           <span className="mt-0.5">{i.sev === "critical" ? "🔴" : i.sev === "high" ? "🟠" : "🟡"}</span>
           <div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold">{i.title}</div><div className="text-[11px] text-[var(--color-ink-2)]">{i.detail}</div></div>
         </div>
@@ -371,7 +395,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: "stat", title: "KPI stat", category: "kpi", frame: "bare", defaultSize: { w: 2, h: 1 }, component: Stat },
   { id: "revenue-trend", title: "Demand & revenue outlook", category: "demand", frame: "card", defaultSize: { w: 8, h: 3 }, component: RevenueTrend },
   { id: "gap-chart", title: "Demand vs supply gap", category: "supply", frame: "card", defaultSize: { w: 8, h: 3 }, component: GapChart, flagged: (d) => d.kpis.revenueAtRisk > 0 },
-  { id: "gap-table", title: "Gap by product family", category: "supply", frame: "card", defaultSize: { w: 12, h: 3 }, component: GapTable, flagged: (d) => d.kpis.revenueAtRisk > 0 },
+  { id: "gap-table", title: "Gap by product family", category: "supply", frame: "card", defaultSize: { w: 12, h: 2 }, component: GapTable, flagged: (d) => d.kpis.revenueAtRisk > 0 },
   { id: "plan-bridge", title: "Plan bridge — baseline → committed", category: "demand", frame: "card", defaultSize: { w: 12, h: 2 }, component: PlanBridge },
   { id: "accuracy-table", title: "Forecast accuracy & BIAS (SKU)", category: "demand", frame: "card", defaultSize: { w: 6, h: 4 }, component: AccuracyTable, available: (d) => d.skuAccuracy.length > 0, flagged: (d) => d.skuAccuracy.some((s) => s.mape > 15) },
   { id: "customer-mix", title: "Customer demand mix", category: "demand", frame: "card", defaultSize: { w: 4, h: 3 }, component: CustomerMix, available: (d) => d.customerMix.length > 0 },
@@ -380,9 +404,9 @@ export const WIDGETS: WidgetDef[] = [
   { id: "capacity-heatmap", title: "Production schedule heatmap", category: "capacity", frame: "card", defaultSize: { w: 12, h: 3 }, component: CapacityHeatmap, available: (d) => d.capacitySchedule.rows.length > 0 },
   { id: "inventory-plants", title: "Inventory by plant (RM/WIP/FG)", category: "inventory", frame: "card", defaultSize: { w: 6, h: 3 }, component: InventoryPlants, available: (d) => d.plants.length > 0 },
   { id: "inventory-projection", title: "Inventory projection", category: "inventory", frame: "card", defaultSize: { w: 6, h: 2 }, component: InventoryProjection, available: (d) => d.inventoryProjection.length > 0 },
-  { id: "slob", title: "Slow-moving & obsolete (SLOB)", category: "inventory", frame: "card", defaultSize: { w: 6, h: 3 }, component: Slob, flagged: (d) => d.kpis.slobValue > 0 },
-  { id: "mrp-risk", title: "MRP — material & supplier risk", category: "supply", frame: "card", defaultSize: { w: 6, h: 3 }, component: MrpRisk, available: (d) => d.materialAlerts.length > 0, flagged: (d) => d.materialAlerts.some((a) => a.severity === "critical") },
-  { id: "issues", title: "Key attention points", category: "governance", frame: "card", defaultSize: { w: 4, h: 3 }, component: Issues },
+  { id: "slob", title: "Slow-moving & obsolete (SLOB)", category: "inventory", frame: "card", defaultSize: { w: 6, h: 2 }, component: Slob, flagged: (d) => d.kpis.slobValue > 0 },
+  { id: "mrp-risk", title: "MRP — material & supplier risk", category: "supply", frame: "card", defaultSize: { w: 6, h: 2 }, component: MrpRisk, available: (d) => d.materialAlerts.length > 0, flagged: (d) => d.materialAlerts.some((a) => a.severity === "critical") },
+  { id: "issues", title: "Key attention points", category: "governance", frame: "card", defaultSize: { w: 4, h: 2 }, component: Issues },
   { id: "exceptions", title: "Exceptions — what needs a decision", category: "governance", frame: "card", defaultSize: { w: 12, h: 3 }, component: Exceptions },
   { id: "vulops", title: "Vulnerabilities & Opportunities", category: "governance", frame: "bare", defaultSize: { w: 6, h: 3 }, component: VulOps },
   { id: "decisions", title: "Decisions & actions", category: "governance", frame: "bare", defaultSize: { w: 6, h: 3 }, component: Decisions },

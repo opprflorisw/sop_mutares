@@ -3,10 +3,10 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../../components/ui";
 import {
-  IconFile, IconChevronDown, IconDashboard, IconChart, IconFactory, IconBox,
-  IconBolt, IconPlus, IconPencil, IconSave, IconTrash, IconX, IconCopy,
+  IconFile, IconDashboard, IconChart, IconFactory, IconBox,
+  IconBolt, IconPlus, IconSave, IconTrash, IconX, IconGear,
 } from "../../components/icons";
-import { PageHeader, NoData } from "./OverviewPage";
+import { NoData } from "./OverviewPage";
 import { useProjectData } from "../../lib/projectData";
 import { useProjects } from "../../lib/projects";
 import { useAuth } from "../../lib/auth";
@@ -68,7 +68,6 @@ export default function DashboardsPage() {
 
   if (!d.hasData || !activeProject) return <NoData />;
 
-  const isStored = !current.system && !current.dynamic;
   const widgets = editing ? draft!.widgets : resolveDashboard(current, d);
 
   function startEdit() {
@@ -113,51 +112,48 @@ export default function DashboardsPage() {
     }
     setDraft(null);
   }
+  function startNew() {
+    setDraft({ name: "New dashboard", icon: "dashboard", description: "", widgets: [] });
+  }
   async function del() {
-    if (current.system || current.dynamic) return;
-    await removeMut({ id: current.id as never });
+    if (!draft?.id) return;
+    await removeMut({ id: draft.id as never });
     setDraft(null);
     setSelectedId("exec");
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          {editing ? (
-            <input
-              value={draft!.name}
-              onChange={(e) => setDraft((dr) => dr && { ...dr, name: e.target.value })}
-              className="w-[280px] max-w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-2.5 py-1 text-[18px] font-semibold outline-none focus:border-[var(--color-brand-500)]"
-              placeholder="Dashboard name"
-              autoFocus
-            />
-          ) : (
-            <PageHeader title={current.name} subtitle={current.description} />
-          )}
+      {editing ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <input
+            value={draft!.name}
+            onChange={(e) => setDraft((dr) => dr && { ...dr, name: e.target.value })}
+            className="w-[280px] max-w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-2.5 py-1.5 text-[16px] font-semibold outline-none focus:border-[var(--color-brand-500)]"
+            placeholder="Dashboard name"
+            autoFocus
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <AddWidgetMenu onAdd={addWidget} />
+            {draft!.id && <Button variant="ghost" onClick={del}><IconTrash size={14} /> Delete</Button>}
+            <Button variant="primary" onClick={save}><IconSave size={14} /> {draft!.id ? "Save" : "Save as new"}</Button>
+            <Button onClick={() => setDraft(null)}><IconX size={14} /> Cancel</Button>
+          </div>
         </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <DashboardTabs dashboards={dashboards} currentId={current.id} onSelect={setSelectedId} onCustomise={startEdit} onNew={startNew} />
+          <Button variant="primary" className="shrink-0" onClick={() => setReportOpen(true)}><IconFile size={14} /> Build report</Button>
+        </div>
+      )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {!editing && <DashboardSwitcher dashboards={dashboards} current={current} onSelect={setSelectedId} />}
-          {editing ? (
-            <>
-              <AddWidgetMenu onAdd={addWidget} />
-              <Button variant="primary" onClick={save}><IconSave size={14} /> {draft!.id ? "Save" : "Save as new"}</Button>
-              <Button onClick={() => setDraft(null)}><IconX size={14} /> Cancel</Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={startEdit}>{isStored ? <><IconPencil size={14} /> Customise</> : <><IconCopy size={14} /> Customise a copy</>}</Button>
-              {isStored && <Button variant="ghost" onClick={del}><IconTrash size={14} /></Button>}
-              <Button variant="primary" onClick={() => setReportOpen(true)}><IconFile size={14} /> Build report</Button>
-            </>
-          )}
-        </div>
-      </div>
+      {!editing && current.description && (
+        <p className="-mt-1 text-[12px] text-[var(--color-ink-2)]">{current.description}</p>
+      )}
 
       {editing && (
         <div className="rounded-lg border border-dashed border-[var(--color-brand-300)] bg-[var(--color-brand-50)] px-3.5 py-2 text-[12px] text-[var(--color-brand-700)]">
-          Editing — add widgets from the menu, remove with the × on each card. Saving {draft!.id ? "updates this dashboard." : "creates a new dashboard for this project."}
+          Editing — drag the ⠿ handle to move, drag a corner to resize, add widgets from the menu, remove with ×. Saving {draft!.id ? "updates this dashboard." : "creates a new dashboard for this project."}
         </div>
       )}
 
@@ -197,68 +193,55 @@ function AddWidgetMenu({ onAdd }: { onAdd: (e: PaletteEntry) => void }) {
   );
 }
 
-function DashboardSwitcher({
-  dashboards, current, onSelect,
+function DashboardTabs({
+  dashboards, currentId, onSelect, onCustomise, onNew,
 }: {
   dashboards: DashboardDef[];
-  current: DashboardDef;
+  currentId: string;
   onSelect: (id: string) => void;
+  onCustomise: () => void;
+  onNew: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
-  }, [open]);
-
-  const CurIcon = ICONS[current.icon ?? "dashboard"] ?? IconDashboard;
-  const system = dashboards.filter((x) => x.system);
-  const mine = dashboards.filter((x) => !x.system);
-
   return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-[12.5px] font-medium hover:bg-[var(--color-surface-2)]">
-        <CurIcon size={15} /> {current.name}
-        <IconChevronDown size={13} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] shadow-xl">
-          <div className="max-h-[64vh] overflow-auto">
-            <Group label="Templates" items={system} current={current} onSelect={(id) => { onSelect(id); setOpen(false); }} />
-            {mine.length > 0 && <Group label="My dashboards" items={mine} current={current} onSelect={(id) => { onSelect(id); setOpen(false); }} />}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Group({ label, items, current, onSelect }: { label: string; items: DashboardDef[]; current: DashboardDef; onSelect: (id: string) => void }) {
-  return (
-    <div>
-      <div className="border-b border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-ink-3)]">{label}</div>
-      <div className="py-1">
-        {items.map((dash) => {
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-1">
+        {dashboards.map((dash) => {
           const Icon = ICONS[dash.icon ?? "dashboard"] ?? IconDashboard;
-          const active = dash.id === current.id;
+          const active = dash.id === currentId;
           return (
-            <button key={dash.id} onClick={() => onSelect(dash.id)} className={`flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-[var(--color-surface-2)] ${active ? "bg-[var(--color-brand-50)]" : ""}`}>
-              <Icon size={15} className={active ? "text-[var(--color-brand-700)]" : "text-[var(--color-ink-3)]"} />
-              <span className="min-w-0">
-                <span className={`block text-[12.5px] font-medium ${active ? "text-[var(--color-brand-700)]" : "text-[var(--color-ink)]"}`}>
-                  {dash.name}
-                  {dash.dynamic && <span className="ml-1.5 rounded bg-[#EEEDFE] px-1 text-[9px] font-semibold text-[#3C3489]">AUTO</span>}
-                </span>
-                {dash.description && <span className="block truncate text-[11px] text-[var(--color-ink-3)]">{dash.description}</span>}
-              </span>
-            </button>
+            <div
+              key={dash.id}
+              className={`flex shrink-0 items-center rounded-md transition-colors ${active ? "bg-[var(--color-surface)] shadow-[0_0_0_0.5px_var(--color-line-strong)]" : "hover:bg-[var(--color-surface)]"}`}
+            >
+              <button
+                onClick={() => onSelect(dash.id)}
+                title={dash.description}
+                className={`flex items-center gap-1.5 py-1.5 pl-2.5 text-[12.5px] ${active ? "pr-1 font-medium text-[var(--color-ink)]" : "pr-2.5 text-[var(--color-ink-2)]"}`}
+              >
+                <Icon size={15} className={active ? "text-[var(--color-brand-700)]" : "text-[var(--color-ink-3)]"} />
+                <span className="whitespace-nowrap">{dash.name}</span>
+                {dash.dynamic && <span className="rounded bg-[#EEEDFE] px-1 text-[9px] font-semibold leading-[1.4] text-[#3C3489]">AUTO</span>}
+              </button>
+              {active && (
+                <button
+                  onClick={onCustomise}
+                  title="Customise this dashboard"
+                  className="mr-1 flex h-6 w-6 items-center justify-center rounded text-[var(--color-ink-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+                >
+                  <IconGear size={13} />
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
+      <button
+        onClick={onNew}
+        title="New dashboard"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-dashed border-[var(--color-line-strong)] text-[var(--color-ink-3)] transition-colors hover:border-[var(--color-brand-300)] hover:text-[var(--color-brand-600)]"
+      >
+        <IconPlus size={16} />
+      </button>
     </div>
   );
 }
