@@ -1,0 +1,3 @@
+item,type,start_month,ramp_months,peak_units,cannibalizes
+FG011,NPI,2026-04,5,1400,FG001
+FG007,EOL,2026-02,4,0,

@@ -1,6 +1,7 @@
 import {
   Bar, BarChart, Line, ComposedChart, PieChart, Pie, Cell, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  ScatterChart, Scatter, ZAxis, ReferenceLine,
 } from "recharts";
 import type { FC } from "react";
 import { Card, KpiTile, Tag } from "../ui";
@@ -13,6 +14,8 @@ import VulOpsCard from "../VulOpsCard";
 import DecisionsPanel from "../DecisionsPanel";
 import ScenarioEngine from "../ScenarioEngine";
 import CadencePanel from "../CadencePanel";
+import ProcessTracker from "../ProcessTracker";
+import BudgetForecast from "../BudgetForecast";
 
 // ============================================================
 // Widget registry — every dashboard tile is a registered widget that
@@ -47,6 +50,7 @@ function metricFor(key: string, d: ProjectData): Metric {
     case "capacity": return { label: "Capacity util.", value: `${k.capacityUtil}%`, delta: k.overloadedLines ? `${k.overloadedLines} line(s) over` : "of the MAC", kind: k.overloadedLines || k.capacityUtil > 90 ? "warn" : "up" };
     case "plannedCapacity": return { label: "Util. vs planned", value: `${k.plannedCapacityUtil}%`, delta: "of planned level", kind: k.plannedCapacityUtil >= 100 ? "down" : k.plannedCapacityUtil >= 95 ? "warn" : "up" };
     case "revenueAtRisk": return { label: "Revenue at risk", value: fmtMoney(k.revenueAtRisk, c), delta: "demand-supply gap", kind: "down" };
+    case "budgetAttain": return { label: "Budget attainment", value: `${k.budgetAttainment}%`, delta: "plan vs AOP", kind: k.budgetAttainment >= 100 ? "up" : k.budgetAttainment >= 95 ? "warn" : "down" };
     case "slob": return { label: "SLOB value", value: fmtMoney(k.slobValue, c), delta: "slow / obsolete FG", kind: k.slobValue > 0 ? "warn" : "up" };
     case "overloaded": return { label: "Overloaded lines", value: `${k.overloadedLines}`, delta: k.overloadedLines ? "needs a decision" : "all within plan", kind: k.overloadedLines ? "down" : "up" };
     case "revenue":
@@ -168,22 +172,80 @@ const PlanBridge: FC<WidgetProps> = ({ d }) => {
   );
 };
 
-const AccuracyTable: FC<WidgetProps> = ({ d }) => (
-  <table className="w-full text-[12px]">
-    <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">SKU</th><th className="py-1.5 font-medium">Description</th><th className="py-1.5 text-right font-medium">MAPE</th><th className="py-1.5 text-right font-medium">BIAS</th><th className="py-1.5 font-medium">Status</th></tr></thead>
-    <tbody>
-      {d.skuAccuracy.slice(0, 10).map((s) => (
-        <tr key={s.sku} className="border-t border-[var(--color-line)]">
-          <td className="py-1.5 font-medium">{s.sku}</td>
-          <td className="py-1.5 text-[var(--color-ink-2)]">{s.desc}</td>
-          <td className={`py-1.5 text-right font-medium ${s.mape > 15 ? "text-[var(--color-bad)]" : s.mape > 10 ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{s.mape}%</td>
-          <td className={`py-1.5 text-right ${Math.abs(s.bias) > 15 ? "text-[var(--color-bad)]" : "text-[var(--color-ink)]"}`}>{s.bias >= 0 ? "+" : ""}{s.bias}%</td>
-          <td className="py-1.5"><Tag tone={s.status === "good" ? "good" : s.status === "warn" ? "warn" : "bad"}>{s.state}</Tag></td>
-        </tr>
+// small lag-trend spark: L3 · L2 · L1 · Now bias%, coloured by magnitude
+const lagTone = (v: number) => (Math.abs(v) > 15 ? C.bad : Math.abs(v) > 8 ? C.warn : C.good);
+const LagSpark: FC<{ trend: number[] }> = ({ trend }) => {
+  const labels = ["L3", "L2", "L1", "Now"];
+  const max = Math.max(8, ...trend.map((v) => Math.abs(v)));
+  return (
+    <div className="flex items-end gap-1.5">
+      {trend.map((v, i) => (
+        <div key={i} className="flex w-7 flex-col items-center">
+          <span className="text-[8.5px] text-[var(--color-ink-3)]">{labels[i]}</span>
+          <div className="relative flex h-6 w-full items-center justify-center">
+            <span className="rounded-sm" style={{ background: lagTone(v), height: `${Math.max(3, (Math.abs(v) / max) * 22)}px`, width: 14, opacity: i === 3 ? 1 : 0.55 }} />
+          </div>
+          <span className="text-[8.5px] tabular-nums" style={{ color: lagTone(v) }}>{v >= 0 ? "+" : ""}{v}%</span>
+        </div>
       ))}
-    </tbody>
-  </table>
+    </div>
+  );
+};
+const AccuracyTable: FC<WidgetProps> = ({ d }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full text-[12px]">
+      <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">SKU</th><th className="py-1.5 font-medium">Description</th><th className="py-1.5 text-right font-medium">MAPE</th><th className="py-1.5 text-right font-medium">BIAS</th><th className="py-1.5 text-center font-medium">Lag trend</th><th className="py-1.5 font-medium">Status</th><th className="hidden py-1.5 font-medium lg:table-cell">Action</th></tr></thead>
+      <tbody>
+        {d.skuAccuracy.slice(0, 10).map((s) => (
+          <tr key={s.sku} className="border-t border-[var(--color-line)] align-middle">
+            <td className="py-2 font-medium">{s.sku}</td>
+            <td className="py-2 text-[var(--color-ink-2)]">{s.desc}</td>
+            <td className={`py-2 text-right font-medium ${s.mape > 15 ? "text-[var(--color-bad)]" : s.mape > 10 ? "text-[var(--color-warn)]" : "text-[var(--color-good-2)]"}`}>{s.mape}%</td>
+            <td className={`py-2 text-right ${Math.abs(s.bias) > 15 ? "text-[var(--color-bad)]" : "text-[var(--color-ink)]"}`}>{s.bias >= 0 ? "+" : ""}{s.bias}%</td>
+            <td className="py-2"><div className="flex justify-center"><LagSpark trend={s.lagTrend} /></div></td>
+            <td className="py-2"><Tag tone={s.status === "good" ? "good" : s.status === "warn" ? "warn" : "bad"}>{s.state}</Tag></td>
+            <td className="hidden py-2 text-[11px] text-[var(--color-ink-2)] lg:table-cell">{s.action}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
 );
+
+// ---- Forecast accuracy vs revenue (img 3 bubble scatter) ----
+const AccuracyScatter: FC<WidgetProps> = ({ d }) => {
+  const valBy = new Map(d.abc.map((a) => [a.key, a.value]));
+  const pts = d.skuAccuracy
+    .filter((s) => s.mape > 0)
+    .map((s) => { const acc = Math.max(0, Math.round(100 - s.mape)); const rev = valBy.get(s.sku) ?? 0; return { sku: s.sku, acc, rev, z: Math.max(rev, 1), fill: acc >= 75 ? C.good : acc >= 55 ? C.warn : C.bad }; })
+    .filter((p) => p.rev > 0);
+  if (!pts.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">Need both forecast value and accuracy to plot.</div>;
+  return (
+    <div className="flex h-full min-h-[210px] flex-col">
+      <div className="mb-1 flex shrink-0 gap-3 text-[10.5px] text-[var(--color-ink-2)]">
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: C.good }} />≥75% good</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: C.warn }} />55–75% fair</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: C.bad }} />&lt;55% poor</span>
+      </div>
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart margin={{ top: 8, right: 12, left: 4, bottom: 16 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+            <XAxis type="number" dataKey="rev" name="Forecast revenue" tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoney(v, d.currency)} label={{ value: "12M forecast revenue", position: "insideBottom", offset: -8, fontSize: 10, fill: C.axis }} />
+            <YAxis type="number" dataKey="acc" name="Accuracy" domain={[0, 100]} tick={{ fontSize: 9, fill: C.axis }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
+            <ZAxis type="number" dataKey="z" range={[60, 420]} />
+            <ReferenceLine y={75} stroke={C.good} strokeDasharray="4 3" />
+            <ReferenceLine y={55} stroke={C.warn} strokeDasharray="4 3" />
+            <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={TOOLTIP_STYLE} formatter={(v: number, n: string) => (n === "Accuracy" ? `${v}%` : n === "Forecast revenue" ? fmtMoney(v, d.currency) : v)} />
+            <Scatter data={pts}>
+              {pts.map((p, i) => <Cell key={i} fill={p.fill} fillOpacity={0.78} />)}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 
 const CustomerMix: FC<WidgetProps> = ({ d }) => (
   <div className="flex h-full min-h-[180px] flex-col">
@@ -601,9 +663,134 @@ const DemandControl: FC<WidgetProps> = ({ d }) => (
   </div>
 );
 
+// ---- Capacity balance — Unconstrained vs Constrained heatmaps + tiles (img 5) ----
+const MiniHeat: FC<{ title: string; periods: string[]; rows: ProjectData["capacitySchedule"]["rows"]; field: "util" | "con" }> = ({ title, periods, rows, field }) => (
+  <div className="min-w-0 flex-1 overflow-x-auto">
+    <div className="mb-1 text-[11px] font-semibold text-[var(--color-ink-2)]">{title}</div>
+    <table className="w-full text-[10.5px]">
+      <thead className="text-left text-[9.5px] text-[var(--color-ink-3)]"><tr><th className="py-1 pr-2 font-medium">Resource</th>{periods.map((p) => <th key={p} className="px-0.5 py-1 text-center font-medium">{p.slice(2)}</th>)}</tr></thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={`${row.plant}-${row.line}`}>
+            <td className="py-0.5 pr-2 font-medium">{row.line}<span className="ml-1 text-[9px] text-[var(--color-ink-3)]">{row.plant}</span></td>
+            {row[field].map((v, i) => <td key={i} className="px-0.5 py-0.5 text-center"><span className={`inline-block w-full rounded px-1 py-0.5 text-[9.5px] font-medium ${heat(v)}`}>{v}</span></td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+const CapacityBalance: FC<WidgetProps> = ({ d }) => {
+  const { periods, rows } = d.capacitySchedule;
+  if (!rows.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No capacity schedule — upload capacity.csv.</div>;
+  const allUtil = rows.flatMap((r) => r.util);
+  const overloadCells = allUtil.filter((v) => v > 100).length;
+  const peak = Math.max(...allUtil);
+  const overLines = rows.filter((r) => r.util.some((v) => v > 100)).length;
+  const avgCon = Math.round(rows.flatMap((r) => r.con).reduce((a, b) => a + b, 0) / Math.max(1, allUtil.length));
+  const tiles: [string, string, "bad" | "warn" | "good"][] = [
+    [`${overLines}`, "resources over capacity", overLines ? "bad" : "good"],
+    [`${peak}%`, "peak load (unconstrained)", peak > 100 ? "bad" : "warn"],
+    [`${overloadCells}`, "month-cells overloaded", overloadCells ? "warn" : "good"],
+    [`${avgCon}%`, "schedulable load (constrained)", "good"],
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {tiles.map(([v, l, tone], i) => (
+          <div key={i} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-2.5">
+            <div className={`text-[18px] font-semibold tabular-nums ${tone === "bad" ? "text-[var(--color-bad)]" : tone === "warn" ? "text-[var(--color-warn)]" : "text-[var(--color-ink)]"}`}>{v}</div>
+            <div className="text-[10px] text-[var(--color-ink-3)]">{l}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <MiniHeat title="Unconstrained — true load (can exceed 100%)" periods={periods} rows={rows} field="util" />
+        <MiniHeat title="Constrained — what actually schedules (capped)" periods={periods} rows={rows} field="con" />
+      </div>
+    </div>
+  );
+};
+
+// ---- Executive supply-chain scorecard — 6 RAG panels (img 9) ----
+const RAG_DOT = { green: C.good, amber: C.warn, red: C.bad } as const;
+const fmtScore = (m: { value: number; unit: string }) => {
+  const u = m.unit;
+  if (u === "%") return `${m.value}%`;
+  if (u === "d") return `${m.value}d`;
+  if (u === "#") return `${m.value}`;
+  return `${m.value}${u ? " " + u : ""}`;
+};
+const Scorecard: FC<WidgetProps> = ({ d }) => {
+  if (!d.scorecard.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">Upload scorecard.csv to build the executive scorecard.</div>;
+  const headline = d.scorecard.filter((m) => m.headline);
+  const cats = [...new Set(d.scorecard.map((m) => m.category))];
+  return (
+    <div className="space-y-3">
+      {headline.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {headline.map((m, i) => (
+            <div key={i} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] p-2.5">
+              <div className="text-[10px] uppercase tracking-wide text-[var(--color-ink-3)]">{m.metric}</div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="text-[18px] font-semibold tabular-nums">{fmtScore(m)}</span>
+                <span className="inline-block h-2 w-2 rounded-full" style={{ background: RAG_DOT[m.rag] }} />
+              </div>
+              <div className="text-[10px] text-[var(--color-ink-3)]">target {fmtScore({ value: m.target, unit: m.unit })}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+        {cats.map((cat) => (
+          <div key={cat} className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-3">
+            <div className="mb-1.5 text-[11.5px] font-semibold text-[var(--color-ink)]">{cat}</div>
+            <div className="divide-y divide-[var(--color-line)]">
+              {d.scorecard.filter((m) => m.category === cat).map((m, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 py-1">
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-ink-2)]">{m.metric}</span>
+                  <span className="text-[11.5px] font-medium tabular-nums" style={{ color: RAG_DOT[m.rag] }}>{fmtScore(m)}</span>
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: RAG_DOT[m.rag] }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ---- Capacity scenario comparison — named shift options (img 8) ----
+const CapacityScenarios: FC<WidgetProps> = ({ d }) => {
+  if (!d.capacityScenarios.length) return <div className="py-6 text-center text-[12px] text-[var(--color-ink-3)]">No capacity gap to close — the constrained plan is balanced.</div>;
+  const hrs = (min: number) => `${Math.round(min / 60).toLocaleString()}h`;
+  return (
+    <table className="w-full text-[12px]">
+      <thead className="text-left text-[11px] text-[var(--color-ink-2)]"><tr><th className="py-1.5 font-medium">Option</th><th className="py-1.5 text-right font-medium">Added</th><th className="py-1.5 text-right font-medium">Cost</th><th className="py-1.5 text-right font-medium">Gap after</th><th className="py-1.5 text-right font-medium">Revenue recovered</th></tr></thead>
+      <tbody>
+        {d.capacityScenarios.map((s, i) => {
+          const closed = s.gapMinAfter === 0;
+          return (
+            <tr key={i} className="border-t border-[var(--color-line)]">
+              <td className="py-2"><div className="font-medium">{s.name}</div><div className="text-[10.5px] text-[var(--color-ink-3)]">{s.note}</div></td>
+              <td className="py-2 text-right tabular-nums">{s.addedMin ? hrs(s.addedMin) : "—"}</td>
+              <td className="py-2 text-right tabular-nums">{s.costEur ? fmtMoney(s.costEur, d.currency) : "—"}</td>
+              <td className={`py-2 text-right font-medium tabular-nums ${closed ? "text-[var(--color-good-2)]" : "text-[var(--color-warn)]"}`}>{closed ? "closed" : hrs(s.gapMinAfter)}</td>
+              <td className="py-2 text-right tabular-nums text-[var(--color-good-2)]">{s.revenueRecovered ? fmtMoney(s.revenueRecovered, d.currency) : "—"}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
 // Interactive depth panels (own files).
 const ScenarioWidget: FC<WidgetProps> = ({ d, project }) => <ScenarioEngine d={d} project={project} />;
 const CadenceWidget: FC<WidgetProps> = ({ project }) => <CadencePanel projectId={project.id} />;
+const ProcessWidget: FC<WidgetProps> = ({ project }) => <ProcessTracker projectId={project.id} />;
+const BudgetForecastWidget: FC<WidgetProps> = ({ d, project }) => <BudgetForecast d={d} projectId={project.id} />;
 
 // ============================================================
 // Registry
@@ -640,6 +827,13 @@ export const WIDGETS: WidgetDef[] = [
   { id: "demand-control", title: "Weekly demand control", category: "demand", frame: "card", defaultSize: { w: 6, h: 3 }, component: DemandControl, available: (d) => d.demandControl.length > 0 },
   { id: "scenario", title: "Scenario engine (what-if)", category: "governance", frame: "bare", defaultSize: { w: 12, h: 4 }, component: ScenarioWidget },
   { id: "cadence", title: "S&OP cadence & governance", category: "governance", frame: "bare", defaultSize: { w: 6, h: 4 }, component: CadenceWidget },
+  // --- demo-pack widgets (mirror Varun's references) ---
+  { id: "accuracy-scatter", title: "Accuracy vs revenue (FVA bubble)", category: "demand", frame: "card", defaultSize: { w: 8, h: 3 }, component: AccuracyScatter, available: (d) => d.skuAccuracy.some((s) => s.mape > 0) && d.abc.length > 0 },
+  { id: "budget-forecast", title: "Forecast vs budget + manual override", category: "demand", frame: "bare", defaultSize: { w: 12, h: 4 }, component: BudgetForecastWidget, available: (d) => d.budgetVariance.length > 0 },
+  { id: "capacity-balance", title: "Capacity — unconstrained vs constrained", category: "capacity", frame: "card", defaultSize: { w: 12, h: 4 }, component: CapacityBalance, available: (d) => d.capacitySchedule.rows.length > 0, flagged: (d) => d.capacitySchedule.rows.some((r) => r.util.some((v) => v > 100)) },
+  { id: "capacity-scenarios", title: "Capacity scenario comparison", category: "capacity", frame: "card", defaultSize: { w: 8, h: 3 }, component: CapacityScenarios, available: (d) => d.capacityScenarios.length > 0 },
+  { id: "scorecard", title: "Executive supply-chain scorecard", category: "governance", frame: "card", defaultSize: { w: 12, h: 5 }, component: Scorecard, available: (d) => d.scorecard.length > 0 },
+  { id: "process-tracker", title: "S&OP process & checklist", category: "governance", frame: "bare", defaultSize: { w: 12, h: 4 }, component: ProcessWidget },
 ];
 
 const BY_ID = new Map(WIDGETS.map((w) => [w.id, w]));

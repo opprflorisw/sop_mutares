@@ -1,0 +1,11 @@
+sku,description,family,uom,plant,std_cost,price
+FG001,Smart Home Hub Pro,Smart Home,pcs,TLL,119,168
+FG002,Smart Thermostat,Climate Control,pcs,TLL,64,96
+FG003,Connect Bridge,Connectivity,pcs,KRK,36,54
+FG004,Power Module X,Power & Sensing,pcs,KRK,101,132
+FG005,Motion Sensor,Power & Sensing,pcs,OPO,27,39
+FG006,IoT Gateway Module,Connectivity,pcs,OPO,86,124
+FG007,Eco Plug Mini,Power & Sensing,pcs,GDN,17,22
+FG008,Climate Sensor Pro,Climate Control,pcs,MUC,52,78
+FG009,Smart Lock Pro,Smart Home,pcs,TLL,121,184
+FG010,Air Quality Monitor,Power & Sensing,pcs,MUC,98,142

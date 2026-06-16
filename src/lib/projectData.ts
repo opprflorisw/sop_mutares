@@ -88,6 +88,30 @@ export type SkuAccuracy = {
   status: "good" | "warn" | "bad";
   state: string;
   action: string;
+  lagTrend: number[]; // bias% at lag L3, L2, L1, Now (oldest → latest) — for the trend spark
+};
+
+// Board scorecard metric (img 9) — value vs target with a RAG verdict.
+export type ScorecardMetric = {
+  category: string;
+  metric: string;
+  value: number;
+  target: number;
+  unit: string;
+  direction: "higher" | "lower";
+  headline: boolean;
+  rag: "green" | "amber" | "red";
+};
+
+// A named capacity option to close the load gap (img 8 scenario comparison).
+export type CapacityScenario = {
+  name: string;
+  note: string;
+  addedMin: number;
+  costEur: number;
+  gapMinBefore: number;
+  gapMinAfter: number;
+  revenueRecovered: number;
 };
 
 export type Issue = {
@@ -173,7 +197,8 @@ export type ProjectData = {
   skuAccuracy: SkuAccuracy[];
   customerMix: { name: string; share: number; color: string }[];
   demandSeries: { m: string; rev: number; cm: number; actual: boolean }[];
-  capacitySchedule: { periods: string[]; rows: { line: string; plant: string; util: number[] }[] };
+  // util = unconstrained load (req/avail, can exceed 100); con = constrained (capped at 100, the schedulable load)
+  capacitySchedule: { periods: string[]; rows: { line: string; plant: string; util: number[]; con: number[] }[] };
   materialAlerts: MaterialAlert[];
   issues: Issue[];
   slob: SlobItem[];
@@ -189,6 +214,9 @@ export type ProjectData = {
   portfolio: PortfolioEntry[];
   budgetVariance: BudgetVarianceRow[];
   demandControl: WeeklyDemand[];
+  scorecard: ScorecardMetric[];
+  capacityScenarios: CapacityScenario[];
+  budgetSeries: { m: string; plan: number; budget: number }[]; // monthly forecast plan vs AOP budget
   kpis: {
     revenueProjection: number;
     contributionMargin: number; // 12m CM value on the demand plan
@@ -203,8 +231,52 @@ export type ProjectData = {
     revenueAtRisk: number;
     slobValue: number;
     overloadedLines: number;
+    budgetAttainment: number; // plan revenue / budget revenue × 100
   };
 };
+
+// ---- scorecard helpers ----
+function ragFor(value: number, target: number, direction: "higher" | "lower"): ScorecardMetric["rag"] {
+  if (target === 0) {
+    // a "vs-target / variance" metric: higher-better rewards positive, lower-better wants near-zero
+    if (direction === "higher") return value > 0 ? "green" : value >= -5 ? "amber" : "red";
+    const a = Math.abs(value); return a === 0 ? "green" : a <= 5 ? "amber" : "red";
+  }
+  if (direction === "higher") return value >= target ? "green" : value >= target * 0.9 ? "amber" : "red";
+  return value <= target ? "green" : value <= target * 1.1 ? "amber" : "red";
+}
+function parseScorecard(project: Project): ScorecardMetric[] {
+  return rowsOf(project, "scorecard").map((r) => {
+    const direction: ScorecardMetric["direction"] = r.direction === "lower" ? "lower" : "higher";
+    const value = num(r.value), target = num(r.target);
+    return { category: r.category || "Other", metric: r.metric || "—", value, target, unit: r.unit || "", direction, headline: /^(1|y|yes|true)$/i.test(r.headline ?? ""), rag: ragFor(value, target, direction) };
+  });
+}
+
+// Lag trend spark (L3, L2, L1, Now) around a SKU's bias — worsening for
+// high-error SKUs, converging for accurate ones. Illustrative, deterministic.
+function lagTrendFor(bias: number, mape: number): number[] {
+  const worsening = mape > 25;
+  const f = worsening ? [0.45, 0.68, 0.86, 1.0] : [1.35, 1.18, 1.06, 1.0];
+  return f.map((x) => +(bias * x).toFixed(1));
+}
+
+// Named capacity options to close a network load gap (img 8). Deterministic
+// from the overloaded minutes + the value density of the plan.
+function buildCapacityScenarios(overloadMin: number, revPerMin: number): CapacityScenario[] {
+  if (overloadMin <= 0) return [];
+  const opt = (name: string, note: string, addedMin: number, costEur: number): CapacityScenario => {
+    const gapMinAfter = Math.max(0, overloadMin - addedMin);
+    const recoveredMin = overloadMin - gapMinAfter;
+    return { name, note, addedMin, costEur, gapMinBefore: overloadMin, gapMinAfter, revenueRecovered: Math.round(recoveredMin * revPerMin) };
+  };
+  return [
+    opt("Baseline", "No added capacity — full gap carried", 0, 0),
+    opt("Saturday shift · Site A", "+1 weekend shift on the SMT lines", Math.round(overloadMin * 0.45), Math.round(overloadMin * 0.45 * 0.9)),
+    opt("3rd / night shift · Site A", "Add a night shift on the binding lines", Math.round(overloadMin * 0.75), Math.round(overloadMin * 0.75 * 1.25)),
+    opt("Combined (Sat + night)", "Both shifts — fully closes the gap", overloadMin, Math.round(overloadMin * 1.15)),
+  ];
+}
 
 // Planning target as a % of available demonstrated capacity (the "MAC").
 // Per the Mutares RCCP method the MAC is only achieved ~25% of the time, so
@@ -323,6 +395,7 @@ function computeFloorData(project: Project): ProjectData {
       sku: s.sku, desc: s.desc, mape: +mape.toFixed(1), bias: +bias.toFixed(1), status,
       state: status === "good" ? "Approved" : status === "warn" ? "Pending" : "Override",
       action: status === "good" ? "Stable. Maintain plan." : status === "warn" ? "Drift vs plan — validate mix." : "High error vs plan. Recalibrate.",
+      lagTrend: lagTrendFor(+bias.toFixed(1), +mape.toFixed(1)),
     };
   }).sort((a, b) => b.mape - a.mape);
   const validAcc = skuAccuracy.filter((a) => a.mape > 0);
@@ -403,16 +476,27 @@ function computeFloorData(project: Project): ProjectData {
     type: r.type === "EOL" ? "EOL" : "NPI", startMonth: r.start_month ?? "", rampMonths: num(r.ramp_months), peakUnits: num(r.peak_units), cannibalizes: r.cannibalizes ?? "",
   }));
 
+  const totalBudgetF = [...budgetByFamF.values()].reduce((a, b) => a + b, 0);
+  const totalPlanF = budgetVariance.reduce((s, b) => s + b.plan, 0);
+  const budgetAttainment = totalBudgetF ? Math.round((totalPlanF / totalBudgetF) * 100) : 0;
+  // monthly forecast plan vs budget
+  const budgetByMonthF = new Map<string, number>();
+  for (const r of projectRows(project, "budget")) budgetByMonthF.set(r.month, (budgetByMonthF.get(r.month) ?? 0) + num(r.budget_revenue));
+  const budgetSeries = futurePlanMonths.length || budgetByMonthF.size
+    ? [...new Set([...futurePlanMonths, ...budgetByMonthF.keys()])].sort().map((m) => ({ m, plan: Math.round(planValByMonth.get(m) ?? 0), budget: Math.round(budgetByMonthF.get(m) ?? 0) }))
+    : [];
+
   return {
     hasData: true, currency,
     families: familyData, capacityLines: [], plants, skuAccuracy, customerMix, demandSeries,
     capacitySchedule: { periods: [], rows: [] }, materialAlerts: [], issues, slob,
     inventoryProjection, forecastLag, plannedCapacityPct: PLANNED_CAPACITY_PCT,
     abc, sites: [], reallocations: [], portfolio, budgetVariance, demandControl,
+    scorecard: parseScorecard(project), capacityScenarios: [], budgetSeries,
     kpis: {
       revenueProjection, contributionMargin: totalCmValueAll, cmPct: +(blendedCmPct * 100).toFixed(1),
       forecastAccuracy, forecastBias, inventoryDays: +invDays.toFixed(1), inventoryTarget, inventoryTurns,
-      capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue, overloadedLines: 0,
+      capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue, overloadedLines: 0, budgetAttainment,
     },
   };
 }
@@ -426,7 +510,8 @@ export function computeProjectData(project: Project | null): ProjectData {
     issues: [], slob: [], inventoryProjection: [], forecastLag: [],
     plannedCapacityPct: PLANNED_CAPACITY_PCT,
     abc: [], sites: [], reallocations: [], portfolio: [], budgetVariance: [], demandControl: [],
-    kpis: { revenueProjection: 0, contributionMargin: 0, cmPct: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, inventoryTurns: 0, capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue: 0, overloadedLines: 0 },
+    scorecard: [], capacityScenarios: [], budgetSeries: [],
+    kpis: { revenueProjection: 0, contributionMargin: 0, cmPct: 0, forecastAccuracy: 0, forecastBias: 0, inventoryDays: 0, inventoryTarget: 40, inventoryTurns: 0, capacityUtil: 0, plannedCapacityUtil: 0, revenueAtRisk: 0, slobValue: 0, overloadedLines: 0, budgetAttainment: 0 },
   };
   if (!project) return empty;
 
@@ -468,8 +553,8 @@ export function computeProjectData(project: Project | null): ProjectData {
       color: familyColor.get(skus.find((s) => s.plant === r.plant)?.family ?? "") ?? "#185FA5",
     };
   });
-  // capacity schedule — util% per line over the last 4 periods
-  const recentDates = capDates.slice(-4);
+  // capacity schedule — util% per line over the recent horizon (up to 12 periods)
+  const recentDates = capDates.slice(-12);
   const lineKeys = [...new Set(capRows.map((r) => `${r.plant}|${r.resource}`))];
   const capacitySchedule = {
     periods: recentDates.map((dd) => ym(dd)),
@@ -481,7 +566,9 @@ export function computeProjectData(project: Project | null): ProjectData {
         const a = num(row.available_min);
         return a ? Math.round((num(row.required_min) / a) * 100) : 0;
       });
-      return { line, plant, util };
+      // constrained = what can actually be scheduled (capped at the line's capacity)
+      const con = util.map((u) => Math.min(100, u));
+      return { line, plant, util, con };
     }),
   };
 
@@ -613,6 +700,7 @@ export function computeProjectData(project: Project | null): ProjectData {
         status === "good" ? "Stable. Maintain model."
         : status === "warn" ? "Drift vs prior year — validate mix."
         : "High error vs prior year. Recalibrate before consensus.",
+      lagTrend: lagTrendFor(+bias.toFixed(1), +mape.toFixed(1)),
     };
   }).sort((a, b) => b.mape - a.mape);
 
@@ -830,6 +918,27 @@ export function computeProjectData(project: Project | null): ProjectData {
   // ---- Weekly Demand Control (G2, short-term horizon, illustrative from monthly) ----
   const demandControl = weeklyControl(demandSeries);
 
+  // ---- Scorecard (img 9) + budget attainment + capacity scenarios (img 8) ----
+  const scorecard = parseScorecard(project);
+  const totalBudget = [...budgetByFam.values()].reduce((a, b) => a + b, 0);
+  const totalPlanRev = budgetVariance.reduce((s, b) => s + b.plan, 0);
+  const budgetAttainment = totalBudget ? Math.round((totalPlanRev / totalBudget) * 100) : 0;
+  // overload to close = the worst (peak) month's network overload, not just
+  // the latest snapshot — that binding month is what drives the capacity call.
+  const overByDate = new Map<string, number>();
+  for (const r of capRows) overByDate.set(r.date, (overByDate.get(r.date) ?? 0) + Math.max(0, num(r.required_min) - num(r.available_min)));
+  const overloadMin = overByDate.size ? Math.max(...overByDate.values()) : 0;
+  const totalReqMin = sites.reduce((s, x) => s + x.requiredMin, 0);
+  const revPerMin = totalReqMin ? totalDemandValueAll / (totalReqMin * 12) : 0; // annual value per annual minute
+  const capacityScenarios = buildCapacityScenarios(overloadMin, revPerMin);
+  // monthly forecast plan revenue vs AOP budget
+  const planRevByMonth = new Map<string, number>();
+  for (const r of fcRows) { const s = skuByCode.get(r.sku); if (s) planRevByMonth.set(ym(r.date), (planRevByMonth.get(ym(r.date)) ?? 0) + num(r.baseline_qty) * s.price); }
+  const budgetByMonth = new Map<string, number>();
+  for (const r of budgetRows) budgetByMonth.set(r.month, (budgetByMonth.get(r.month) ?? 0) + num(r.budget_revenue));
+  const budgetSeries = [...new Set([...planRevByMonth.keys(), ...budgetByMonth.keys()])].sort()
+    .map((m) => ({ m, plan: Math.round(planRevByMonth.get(m) ?? 0), budget: Math.round(budgetByMonth.get(m) ?? 0) }));
+
   return {
     hasData: true,
     currency: project.currency,
@@ -847,7 +956,8 @@ export function computeProjectData(project: Project | null): ProjectData {
     forecastLag,
     plannedCapacityPct: PLANNED_CAPACITY_PCT,
     abc, sites, reallocations, portfolio, budgetVariance, demandControl,
-    kpis: { revenueProjection, contributionMargin, cmPct: +(blendedCmPct * 100).toFixed(1), forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, inventoryTurns, capacityUtil, plannedCapacityUtil, revenueAtRisk, slobValue, overloadedLines },
+    scorecard, capacityScenarios, budgetSeries,
+    kpis: { revenueProjection, contributionMargin, cmPct: +(blendedCmPct * 100).toFixed(1), forecastAccuracy, forecastBias, inventoryDays: +invDaysWeighted.toFixed(1), inventoryTarget, inventoryTurns, capacityUtil, plannedCapacityUtil, revenueAtRisk, slobValue, overloadedLines, budgetAttainment },
   };
 }
 

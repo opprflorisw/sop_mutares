@@ -1,0 +1,28 @@
+category,metric,value,target,unit,direction,headline
+Customer Delivery,OTIF — all customers,98.2,97,%,higher,1
+Demand,Forecast accuracy,84,85,%,higher,1
+Inventory,Inventory days,43,40,d,lower,1
+Freight & Logistics,Outbound freight %,0.31,0.39,%,lower,1
+People & Savings,Savings YTD,176,142,k€,higher,1
+Customer Delivery,OTIF — NordRetail,99,97,%,higher,0
+Customer Delivery,OTIF — TechDistro EU,96,97,%,higher,0
+Customer Delivery,OTIF — HomeServe,100,97,%,higher,0
+Customer Delivery,Line fill rate,97.4,98,%,higher,0
+Freight & Logistics,Premium freight,28,20,k€,lower,0
+Freight & Logistics,Inbound import freight,412,380,k€,lower,0
+Freight & Logistics,Demurrage,0,0,k€,lower,0
+Inventory,Days — Site A,47,40,d,lower,0
+Inventory,Days — Site C,33,35,d,lower,0
+Inventory,Raw material days,31,30,d,lower,0
+Inventory,Obsolescence (SLOB),0.31,0.2,M€,lower,0
+Demand,Forecast BIAS,-4.2,0,%,lower,0
+Demand,Plan vs budget,-3,0,%,higher,0
+Demand,A-item accuracy,89,90,%,higher,0
+Capacity,Site A utilisation,113,100,%,lower,0
+Capacity,Site C utilisation,104,100,%,lower,0
+Capacity,Site D utilisation,76,100,%,lower,0
+Capacity,Site E utilisation,82,100,%,lower,0
+Capacity,Overloaded sites,2,0,#,lower,0
+People & Savings,FTE — direct,248,250,#,lower,0
+People & Savings,Savings vs target,24,0,%,higher,0
+People & Savings,Open gap-close actions,6,0,#,lower,0

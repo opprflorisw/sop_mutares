@@ -346,6 +346,30 @@ const ADVANCED_TEMPLATES: DataTemplate[] = [
 ];
 TEMPLATES.push(...ADVANCED_TEMPLATES);
 
+// Board scorecard — a flat metrics file for the Executive supply-chain
+// scorecard (OTIF, freight, savings, etc.) that can't be derived from the
+// operational data. Offered to any project that wants the exec view.
+const SCORECARD_TEMPLATE: DataTemplate = {
+  id: "scorecard",
+  file: "scorecard.csv",
+  title: "Supply-chain Scorecard",
+  module: "Master",
+  requirement: "optional",
+  timeSeries: false,
+  description: "Board KPIs grouped by category with targets — powers the Executive scorecard widget.",
+  fields: [
+    { name: "category", type: "string", required: true, description: "Panel the metric sits in (e.g. Customer Delivery)" },
+    { name: "metric", type: "string", required: true, description: "Metric name" },
+    { name: "value", type: "number", required: true, description: "Current value" },
+    { name: "target", type: "number", required: true, description: "Target value" },
+    { name: "unit", type: "string", required: true, description: "Unit (%, d, k€, # …)" },
+    { name: "direction", type: "enum", required: true, description: "Which way is good", enumValues: ["higher", "lower"] },
+    { name: "headline", type: "number", required: false, description: "1 to surface in the KPI strip" },
+  ],
+  example: { category: "Customer Delivery", metric: "OTIF — all customers", value: 98.2, target: 97, unit: "%", direction: "higher", headline: 1 },
+};
+TEMPLATES.push(SCORECARD_TEMPLATE);
+
 export const floorTemplates = (): DataTemplate[] => TEMPLATES.filter((t) => FLOOR.has(t.id) || ADVANCED.has(t.id));
 export const sopTemplates = (): DataTemplate[] => TEMPLATES.filter((t) => !FLOOR.has(t.id));
 

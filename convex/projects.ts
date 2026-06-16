@@ -198,6 +198,27 @@ const seedFile = v.object({
   coverage: v.optional(coverage),
 });
 
+const seedDashboard = v.object({
+  name: v.string(),
+  icon: v.optional(v.string()),
+  description: v.optional(v.string()),
+  page: v.optional(v.string()),
+  widgets: v.array(
+    v.object({
+      widgetId: v.string(),
+      w: v.number(),
+      h: v.number(),
+      x: v.optional(v.number()),
+      y: v.optional(v.number()),
+      config: v.optional(v.any()),
+    })
+  ),
+});
+type SeedDashboard = {
+  name: string; icon?: string; description?: string; page?: string;
+  widgets: { widgetId: string; w: number; h: number; x?: number; y?: number; config?: unknown }[];
+};
+
 export const ensureSeed = mutation({
   args: {
     users: v.array(
@@ -217,10 +238,27 @@ export const ensureSeed = mutation({
         background: v.optional(v.string()),
         currency: v.string(),
         files: v.array(seedFile),
+        dashboards: v.optional(v.array(seedDashboard)),
       })
     ),
   },
   handler: async (ctx, { users, projects }) => {
+    // Insert seeded dashboards for a project, idempotently (by name).
+    async function seedDashboards(projectId: Id<"projects">, defs?: SeedDashboard[]) {
+      if (!defs?.length) return;
+      const have = await ctx.db
+        .query("dashboards")
+        .withIndex("by_project", (q) => q.eq("projectId", projectId))
+        .collect();
+      const names = new Set(have.map((d) => d.name));
+      for (const dash of defs) {
+        if (names.has(dash.name)) continue;
+        await ctx.db.insert("dashboards", {
+          projectId, name: dash.name, icon: dash.icon, description: dash.description,
+          page: dash.page, owner: "seed", widgets: dash.widgets as never, createdAt: 0, updatedAt: 0,
+        });
+      }
+    }
     // users — insert any missing by email
     for (const u of users) {
       const email = u.email.trim().toLowerCase();
@@ -247,7 +285,8 @@ export const ensureSeed = mutation({
           await ctx.db.patch(found._id, { description: proj.description, background: proj.background });
         }
         // refresh the active version's content where the seed file changed
-        // (e.g. a data fix) — keeps versions, vulops, decisions intact.
+        // (e.g. a data fix) — keeps versions, vulops, decisions intact. A
+        // newly-added seed file (template absent on this project) is inserted.
         for (const f of proj.files as SeedFile[]) {
           const versions = await ctx.db
             .query("projectFiles")
@@ -255,7 +294,14 @@ export const ensureSeed = mutation({
               q.eq("projectId", found._id).eq("templateId", f.templateId)
             )
             .collect();
-          if (versions.length === 0) continue;
+          if (versions.length === 0) {
+            await ctx.db.insert("projectFiles", {
+              projectId: found._id, templateId: f.templateId, version: 1, fileName: f.fileName,
+              rows: f.rows, status: f.status, issues: f.issues, coverage: f.coverage,
+              content: f.content, active: true, uploadedAt: 0,
+            });
+            continue;
+          }
           const active = versions.find((v) => v.active) ?? versions[versions.length - 1];
           if (active.content !== f.content) {
             await ctx.db.patch(active._id, {
@@ -264,6 +310,7 @@ export const ensureSeed = mutation({
             });
           }
         }
+        await seedDashboards(found._id, proj.dashboards as SeedDashboard[] | undefined);
         continue;
       }
       const projectId: Id<"projects"> = await ctx.db.insert("projects", {
@@ -277,6 +324,7 @@ export const ensureSeed = mutation({
           content: f.content, active: true, uploadedAt: 0,
         });
       }
+      await seedDashboards(projectId, proj.dashboards as SeedDashboard[] | undefined);
     }
   },
 });

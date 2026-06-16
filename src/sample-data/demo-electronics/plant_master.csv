@@ -1,0 +1,6 @@
+plant,name,location,capacity_minutes,target_inv_days
+TLL,Site A — Tallinn,"Tallinn, EE",96000,40
+KRK,Site B — Kraków,"Kraków, PL",88000,40
+OPO,Site C — Porto,"Porto, PT",72000,35
+MUC,Site D — Munich,"Munich, DE",60000,30
+GDN,Site E — Gdańsk,"Gdańsk, PL",54000,45
