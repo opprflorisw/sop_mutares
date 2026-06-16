@@ -9,7 +9,7 @@ import DataManagerPage from "./pages/DataManagerPage";
 import AccountManagementPage from "./pages/AccountManagementPage";
 import DashboardUnderstandingPage from "./pages/DashboardUnderstandingPage";
 import ToolLayout from "./components/ToolLayout";
-import OverviewPage from "./pages/tool/OverviewPage";
+import DashboardsPage from "./pages/tool/DashboardsPage";
 import DemandPage from "./pages/tool/DemandPage";
 import SupplyPage from "./pages/tool/SupplyPage";
 import CapacityPage from "./pages/tool/CapacityPage";
@@ -61,7 +61,7 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/tool/overview" replace />} />
-        <Route path="overview" element={<OverviewPage />} />
+        <Route path="overview" element={<DashboardsPage />} />
         <Route path="demand" element={<DemandPage />} />
         <Route path="supply" element={<SupplyPage />} />
         <Route path="capacity" element={<CapacityPage />} />

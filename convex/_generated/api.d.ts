@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as dashboards from "../dashboards.js";
 import type * as decisions from "../decisions.js";
 import type * as overrides from "../overrides.js";
 import type * as projects from "../projects.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  dashboards: typeof dashboards;
   decisions: typeof decisions;
   overrides: typeof overrides;
   projects: typeof projects;

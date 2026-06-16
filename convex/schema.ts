@@ -50,6 +50,29 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_project", ["projectId"]),
 
+  // Saved dashboards — a user/project layout = an ordered list of placed
+  // widgets (widgetId + grid size + per-widget config). Predefined
+  // templates live in code; these are the customised/saved ones.
+  dashboards: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    icon: v.optional(v.string()),
+    description: v.optional(v.string()),
+    owner: v.string(), // email of creator
+    widgets: v.array(
+      v.object({
+        widgetId: v.string(),
+        w: v.number(),
+        h: v.number(),
+        x: v.optional(v.number()),
+        y: v.optional(v.number()),
+        config: v.optional(v.any()),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
   // VulOps — Vulnerabilities & Opportunities register. An output of
   // every S&OP/IBP meeting: risks to the plan and upside levers, each
   // sized by value impact, with an owner and status.
